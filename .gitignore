@@ -27,3 +27,26 @@
 *.i*86
 *.x86_64
 *.hex
+
+# MPLAB X Specifics
+*.d
+*.pre
+*.p1
+*.lst
+*.sym
+*.o
+*.sdb
+*.obj.dmp
+html/
+nbproject/private/
+nbproject/Package-*.bash
+build/
+nbbuild/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+funclist
+nbproject/Makefile-*
+disassembly/
+*.map
