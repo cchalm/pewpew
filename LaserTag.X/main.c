@@ -142,7 +142,7 @@ int main(void) {
 
         // If the trigger is pressed, it wasn't pressed before, and the shot
         // timer has elapsed, try to shoot
-        if (/*trigger_pressed && !trigger_was_pressed &&*/ can_shoot)
+        if (trigger_pressed && !trigger_was_pressed && can_shoot)
         {
             // Make sure we have ammo and the magazine is in
             if (mag_in && ammo)
@@ -161,7 +161,7 @@ int main(void) {
             can_shoot = FALSE;
         }
         else // Trigger not pressed
-        {/*
+        {
             // Only enable shot a short time after releasing the trigger. This
             // is to prevent button bounces from causing shots when releasing
             // the trigger
@@ -170,7 +170,7 @@ int main(void) {
                 // Trigger was pressed and now isn't - the trigger was released
                 can_shoot = FALSE;
                 shot_enable_ms_count = ms_counter + BOUNCE_DELAY;
-            }*/
+            }
         }
 
         if (!mag_in)
@@ -411,7 +411,7 @@ void shoot(void)
     CCP3IF = 1;
     CCP3IE = 1;
     flash();
-    //ammo--;
+    ammo--;
     setHealthDisplay(ammo);
 }
 
