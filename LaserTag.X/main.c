@@ -157,7 +157,7 @@ int main(void) {
 
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
-            shot_enable_ms_count = ms_counter + SHOT_DELAY*5;
+            shot_enable_ms_count = ms_counter + SHOT_DELAY;
             can_shoot = FALSE;
         }
         else // Trigger not pressed
