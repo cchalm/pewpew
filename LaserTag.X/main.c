@@ -50,16 +50,21 @@ typedef unsigned int count_t;
 #define SHOT_DATA_LENGTH 8
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
-// be registered. This is to prevent unintended shots from button bounce
+// be registered. This is to mitigate button bounce.
 #define BOUNCE_DELAY 2
+
+enum
+{
+    INVALID_SHOT_DATA_RECEIVED = 0b1001
+};
 
 int health;
 int ammo;
 
 // Counts seconds. Overflows to 0 after ~18 hours (1092.25 minutes)
-volatile count_t s_counter;
+volatile count_t s_count;
 // Counts milliseconds. Overflows to 0 after ~1 minute (65.535 seconds)
-volatile count_t ms_counter;
+volatile count_t ms_count;
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
@@ -80,11 +85,14 @@ volatile bool_t shot_received;
 
 unsigned char input_state;
 
-void setHealthDisplay(int value);
+void setHealthDisplay(unsigned char value);
 void shoot(void);
 void flash(void);
-
-volatile count_t TEST_mess_up_shot;
+// Given two TMR1 measurements, with "first" being measured before "second", and
+// the number of overflows that occured between the two measurements, capped at
+// two, returns the number of TMR1 ticks that elapsed between the two
+// measurements, capped at the maximum value of TMR1_t.
+TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count);
 
 int main(void) {
     configureSystem();
@@ -103,16 +111,20 @@ int main(void) {
     ammo = MAX_AMMO;
     setHealthDisplay(ammo);
 
+    // Set the "was" variables for use on the first loop iteration
     input_state = INPUT_PORT;
     trigger_was_pressed = PIN_TRIGGER == TRIGGER_PRESSED;
     mag_was_out = PIN_RELOAD == MAG_OUT;
     
     PIN_SHOT_LIGHT = LOW;
 
-    ms_counter = 0;
-    s_counter = 0;
-    
-    TEST_mess_up_shot = 1;
+    ms_count = 0;
+    s_count = 0;
+
+    // Start timer1
+    //TMR1 = 0;
+    TMR1IF = 0;
+    TMR1IE = 1;
 
     TMR0 = TMR0_PRELOAD;
     // Enable interrupts (go, go, go!)
@@ -130,6 +142,8 @@ int main(void) {
             PIN_HIT_LIGHT = 1;
 
             // Look up player ID
+            if (player_id != shot_data_to_send)
+                error(INVALID_SHOT_DATA_RECEIVED);
 
             shot_received = FALSE;
         }
@@ -157,7 +171,7 @@ int main(void) {
 
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
-            shot_enable_ms_count = ms_counter + SHOT_DELAY;
+            shot_enable_ms_count = ms_count + SHOT_DELAY;
             can_shoot = FALSE;
         }
         else // Trigger not pressed
@@ -165,11 +179,11 @@ int main(void) {
             // Only enable shot a short time after releasing the trigger. This
             // is to prevent button bounces from causing shots when releasing
             // the trigger
-            if (trigger_was_pressed && (shot_enable_ms_count - ms_counter < BOUNCE_DELAY))
+            if (trigger_was_pressed && (shot_enable_ms_count - ms_count < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
                 can_shoot = FALSE;
-                shot_enable_ms_count = ms_counter + BOUNCE_DELAY;
+                shot_enable_ms_count = ms_count + BOUNCE_DELAY;
             }
         }
 
@@ -198,15 +212,15 @@ void interrupt ISR(void)
 
         static count_t next_s = 1000;
         
-        ms_counter++;
+        ms_count++;
 
-        if (ms_counter == next_s)
+        if (ms_count == next_s)
         {
-            s_counter++;
-            next_s = ms_counter + 1000;
+            s_count++;
+            next_s = ms_count + 1000;
         }
 
-        if (ms_counter == shot_enable_ms_count)
+        if (ms_count == shot_enable_ms_count)
         {
             can_shoot = TRUE;
         }
@@ -220,16 +234,17 @@ void interrupt ISR(void)
     {
         // Shooting logic
 
-        static unsigned char shot_data_index = 0;
+        // Send MSB first
+        static unsigned char shot_data_index = SHOT_DATA_LENGTH;
         static bool_t next_edge_rising = TRUE;
 
         if (next_edge_rising)
         {
             PIN_SHOT_LIGHT = HIGH;
+            shot_data_index--;
             TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
                 ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
             CCPR3 = TMR1 + pulse_width;
-            shot_data_index++;
             next_edge_rising = FALSE;
         }
         else // !next_edge_rising
@@ -237,11 +252,11 @@ void interrupt ISR(void)
             PIN_SHOT_LIGHT = LOW;
             next_edge_rising = TRUE;
 
-            if (shot_data_index == SHOT_DATA_LENGTH)
+            if (shot_data_index == 0)
             {
                 // This is the final falling edge of the shot, reset the data
                 // index and disable CCP3 interrupts
-                shot_data_index = 0;
+                shot_data_index = SHOT_DATA_LENGTH;
                 // Disable CCP3 interrupts
                 CCP3IE = 0;
             }
@@ -258,21 +273,22 @@ void interrupt ISR(void)
     {
         // Shot reception logic
 
-        static bool_t wait_for_silence = FALSE;
         // Counts timer1 overflows, capped at 2
-        static unsigned char overflow_counter;
+        static unsigned char overflow_count;
+
+        // Data accumulator
+        static unsigned char data = 0;
+        static unsigned char bit_count = 0;
 
         if (TMR1IF && TMR1IE)
         {
-            if (overflow_counter == 2)
+            overflow_count++;
+
+            if (overflow_count == 2)
             {
-                // We're going to stop counting at 2, so we might as well turn
-                // off timer1 interrupts.
+                // Once we hit two, turn off interrupts. We don't want to
+                // increment further.
                 TMR1IE = 0;
-            }
-            else
-            {
-                overflow_counter++;
             }
 
             // Reset flag
@@ -281,124 +297,81 @@ void interrupt ISR(void)
         else if (CCP2IF && CCP2IE)
         {
             // Falling edge detected (start of pulse, end of silence)
-
-            /*
-             * A period of silence just ended. We need to see if the length of
-             * the silence was at least double the length of the gap between
-             * pulses in a transmission. There are three cases to check (four if
-             * you consider case 3 to be two cases).
-             *
-             * Case 1: overflow_counter == 2
-             *  Timer1 has overflowed at least twice during this period of
-             *  silence. This means at least one full timer cycle has elapsed
-             *  (one overflow for the beginning of the cycle, one for the end).
-             *  The pulse gap is guaranteed to be less than half of the time it
-             *  takes timer1 to go through a full cycle, so this period of
-             *  silence is guaranteed to be at least double the pulse gap.
-             *
-             * Case 2: overflow_counter == 1 && CCPR2 >= CCPR1
-             *  Timer1 has overflowed exactly once during this period of
-             *  silence, and the time (in terms of timer1 ticks) of the end of
-             *  the silence is greater than or equal to the time of the start.
-             *  The silence started in some timer cycle, and ended at the same
-             *  time or later in the next timer cycle, so more than one timer
-             *  cycle has elapsed. For the reasons mentioned in case 1, this
-             *  period of silence is guaranteed to be at least double the pulse
-             *  gap.
-             *
-             * Case 3: (TMR1_t)(CCPR2 - CCPR1) >= PULSE_GAP_WIDTH * 2
-             *  If overflow_counter == 1, we know CCPR2 < CCPR1 because
-             *  otherwise we would have gone with case 2. The result of the
-             *  subtraction will underflow when cast and produce the correct
-             *  value for elapsed ticks (you can verify this with a simple
-             *  number line). If overflow_counter == 0, CCPR2 will be greater
-             *  than CCPR1 and this is a simple subtraction to get elapsed
-             *  ticks.
-             */
-
-            if ( (overflow_counter == 2) ||
-                 (overflow_counter == 1 && CCPR2 >= CCPR1) ||
-                 ((TMR1_t)(CCPR2 - CCPR1) >= PULSE_GAP_WIDTH * 2) )
-            {
-                wait_for_silence = FALSE;
-                // Disable interrupts on rising edges
-                CCP2IE = 0;
-                // Disable timer1 overflow interrupts
-                TMR1IE = 0;
-            }
             
-            // Reset flag
+            TMR1IF = 0;
+
+            TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
+
+            if ( pulse_width > 1500 )
+            {
+                // Long silence. Reset
+                data = 0;
+                bit_count = 0;
+
+                // Re-enable end-of-pulse interrupts, in case we disabled them
+                CCP1IF = 0;
+                CCP1IE = 1;
+            }
+
+            overflow_count = 0;
+            TMR1IE = 1;
             CCP2IF = 0;
         }
-        else if (CCP1IF)
+        else if (CCP1IF && CCP1IE)
         {
             // Rising edge detected (end of pulse, start of silence)
 
-            if (wait_for_silence)
+            TMR1IF = 0;
+
+            TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
+
+            if (pulse_width > 2500 && pulse_width < 4000)
             {
-                overflow_counter = 0;
+                // Received a 0
+                data <<= 1;
+                bit_count++;
+            }
+            else if (pulse_width > 4500 && pulse_width < 6000)
+            {
+                // Received a 1
+                data = (data << 1) | 1;
+                bit_count++;
             }
             else
             {
-                static unsigned char bit_count = 0;
-                static unsigned char data = 0;
+                // Invalid pulse width. Something has gone wrong, so we're
+                // going to stop reading in data and wait until we see a
+                // long period of silence
 
-                TMR1_t pulse_width = CCPR1 - CCPR2;
+                // Disable end-of-pulse interrupts to stop reading data
+                CCP1IE = 0;
+            }
 
-                if (pulse_width > 2500 && pulse_width < 4000)
-                {
-                    // Received a 0
-                    data <<= 1;
-                    bit_count++;
-                }
-                else if (pulse_width > 4500 && pulse_width < 6000)
-                {
-                    // Received a 1
-                    data = (data << 1) | 1;
-                    bit_count++;
-                }
-                else
-                {
-                    // Invalid pulse width. Something has gone wrong, so we're
-                    // going to stop reading in data and wait until we see a
-                    // period of silence at least twice the length of a pulse
-                    // gap before starting again.
+            if (bit_count == SHOT_DATA_LENGTH)
+            {
+                shot_received = TRUE;
+                shot_data_received = data;
 
-                    overflow_counter = 0;
-                    wait_for_silence = TRUE;
-
-                    // Enable interrupts on rising edges
-                    CCP2IF = 0;
-                    CCP2IE = 1;
-                    // Enable timer1 overflow interrupts
-                    TMR1IF = 0;
-                    TMR1IE = 1;
-
-                    data = 0;
-                    bit_count = 0;
-                }
-
-                if (bit_count == SHOT_DATA_LENGTH)
-                {
-                    // We've received an entire shot
-                    shot_data_received = data;
-                    shot_received = TRUE;
-
-                    bit_count = 0;
-                    data = 0;
-                }
+                // We could just reset the data accumulator here and let more
+                // shot data come through immediately, on the off chance that
+                // the time between the end of one shot and the start of the
+                // next is less than the silence reset, but instead we're just
+                // going to wait for silence. This is more robust and has a
+                // negligible impact on shot throughput.
+                CCP1IE = 0;
             }
             
-            // Reset flag
+            overflow_count = 0;
+            TMR1IE = 1;
             CCP1IF = 0;
         }
     }
 }
 
-void setHealthDisplay(int value)
+void setHealthDisplay(unsigned char value)
 {
     // Shift in zeros from the right
-    setLEDDisplay( 0b1111111111 >> value );
+    setLEDDisplay( ~(0b1111111111 >> value) );
 }
 
 void shoot(void)
@@ -420,4 +393,50 @@ void flash(void)
     PIN_MUZZLE_FLASH = 0;
     NOP();
     PIN_MUZZLE_FLASH = 1;
+}
+
+TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
+{
+    /*
+     * When measuring the length of a pulse using two TMR1 measurements, there
+     * are three cases to consider. Below, "first" refers to the first
+     * measurement, and "second" refers to the second measurement.
+     *
+     * Case 1: overflow_counter == 2
+     *  Timer1 has overflowed at least twice during this period of
+     *  silence. This means at least one full timer cycle has elapsed
+     *  (one overflow for the beginning of the cycle, one for the end).
+     *
+     * Case 2: overflow_counter == 1 && CCPR2 >= CCPR1
+     *  Timer1 has overflowed exactly once during this period of
+     *  silence, and the time (in terms of timer1 ticks) of the end of
+     *  the silence is greater than or equal to the time of the start.
+     *  The silence started in some timer cycle, and ended at the same
+     *  time or later in the next timer cycle, so more than one timer
+     *  cycle has elapsed.
+     *
+     * Case 3: (TMR1_t)(CCPR2 - CCPR1)
+     *  If overflow_counter == 1, we know CCPR2 < CCPR1 because
+     *  otherwise we would have gone with case 2. The result of the
+     *  subtraction will underflow when cast and produce the correct
+     *  value for elapsed ticks (you can verify this with a simple
+     *  number line). If overflow_counter == 0, CCPR2 will be greater
+     *  than CCPR1 and this is a simple subtraction to get elapsed
+     *  ticks.
+     */
+
+    TMR1_t pulse_width;
+    if ( (overflow_count == 2) ||
+         (overflow_count == 1 && second >= first) )
+    {
+        // At least one full timer cycle has elapsed, set pulse_width to
+        // the maximum value of a TMR1_t
+        pulse_width = (TMR1_t)(-1);
+    }
+    else
+    {
+        pulse_width = (TMR1_t)(second - first);
+    }
+
+    return pulse_width;
 }

@@ -50,7 +50,8 @@ typedef unsigned short TMR1_t;
 
 #define TMR0_PRELOAD 5 // 255 - 250
 
-// Pulse gap width must be less than half of the max value of TMR1
+// These values must be less than half of the max value of the TMR1 register.
+// These numbers could probably be a little lower, but these values are robust.
 #define PULSE_GAP_WIDTH 2000
 #define ZERO_PULSE_WIDTH 2000
 #define ONE_PULSE_WIDTH 4000
@@ -58,7 +59,8 @@ typedef unsigned short TMR1_t;
 void configureSystem(void);
 // MSB is first LED
 void setLEDDisplay(unsigned int bits);
-void delay(int d);
-void delayTiny(int d);
+void delay(unsigned long d);
+void delayTiny(unsigned long d);
+void error(unsigned int error_code);
 
 #endif // SYSTEM_H

@@ -92,31 +92,52 @@ void configureCCP(void)
     //              |--|
     CCP3CON = 0b00001010;
     CCP1IE = 1;
+    CCP2IE = 1;
 }
 
 void setLEDDisplay(unsigned int bits)
 {
-    LATD = (LATD & 0b11110000) | (bits >> 6 & 0b1111);
-    LATA = (LATA & 0b11000000) | (bits & 0b111111);
+    LATD = ~((LATD & 0b11110000) | (bits >> 6 & 0b1111));
+    LATA = ~((LATA & 0b11000000) | (bits & 0b111111));
 }
 
-void _delay_gen(int d, volatile int multiplier)
+void _delay_gen(unsigned long d, volatile unsigned int multiplier)
 {
-    volatile int i = 0;
-    while (i < d)
+    volatile unsigned long i = 0;
+    while (i != d)
     {
-        while (multiplier > 0)
-            multiplier--;
+        volatile unsigned int x = 0;
+        while (x != multiplier)
+            x++;
         i++;
     }
 }
 
-void delay(int d)
+void delay(unsigned long d)
 {
-    _delay_gen(d, 400);
+    _delay_gen(d, 600);
 }
 
-void delayTiny(int d)
+void delayTiny(unsigned long d)
 {
     _delay_gen(d, 0);
+}
+
+void error(unsigned int error_code)
+{
+    while (1)
+    {
+        setLEDDisplay(error_code);
+        delay(50);
+        setLEDDisplay(0);
+        delay(100);
+        setLEDDisplay(error_code);
+        delay(50);
+        setLEDDisplay(0);
+        delay(100);
+        setLEDDisplay(error_code);
+        delay(50);
+        setLEDDisplay(0);
+        delay(300);
+    }
 }
