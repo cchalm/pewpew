@@ -36,13 +36,12 @@ void configureSystem(void)
     // individual output pins.
     ANSELA = 0;
     ANSELB = 0;
+    ANSELC = 0;
     ANSELD = 0;
-    // Set port A to output
-    TRISA = 0;
     // Set port B to output
     TRISB = 0;
-    // Set D0 - D3 to output, D5 - D7 to input
-    TRISD = 0b11100000;
+    // Set D0 - D1 to input, D3 - D7 to output
+    TRISD = 0b00000011;
     // Set C0 to output, C1 - C2 to input
     TRISC = 0b110;
 }
@@ -97,8 +96,9 @@ void configureCCP(void)
 
 void setLEDDisplay(unsigned int bits)
 {
-    LATD = ~((LATD & 0b11110000) | (bits >> 6 & 0b1111));
-    LATA = ~((LATA & 0b11000000) | (bits & 0b111111));
+    bits = ~bits;
+    LATD = (LATD & 0b00000011) | ((bits & 0b0000000011) << 2) | ((bits & 0b1111000000) >> 2);
+    LATC = (LATC & 0b00001111) | ((bits & 0b0000111100) << 2);
 }
 
 void _delay_gen(unsigned long d, volatile unsigned int multiplier)

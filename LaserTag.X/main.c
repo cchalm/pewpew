@@ -370,8 +370,8 @@ void interrupt ISR(void)
 
 void setHealthDisplay(unsigned char value)
 {
-    // Shift in zeros from the right
-    setLEDDisplay( ~(0b1111111111 >> value) );
+    // Shift in zeros from the right and invert
+    setLEDDisplay( ~(0b1111111111 << value) );
 }
 
 void shoot(void)
