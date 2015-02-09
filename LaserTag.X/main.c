@@ -94,6 +94,10 @@ void flash(void);
 // measurements, capped at the maximum value of TMR1_t.
 TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count);
 
+void HandleTimingInterrupt(void);
+void HandleShootingInterrupt(void);
+void HandleShotReceptionInterrupt(void);
+
 int main(void) {
     configureSystem();
 
@@ -206,165 +210,17 @@ int main(void) {
 // Main Interrupt Service Routine (ISR)
 void interrupt ISR(void)
 {
-    if (TMR0IF)
+    if (TMR0IF && TMR0IE)
     {
-        // Real-time timer logic
-
-        static count_t next_s = 1000;
-        
-        ms_count++;
-
-        if (ms_count == next_s)
-        {
-            s_count++;
-            next_s = ms_count + 1000;
-        }
-
-        if (ms_count == shot_enable_ms_count)
-        {
-            can_shoot = TRUE;
-        }
-
-        // Preload timer
-        TMR0 = TMR0_PRELOAD;
-        // Reset flag
-        TMR0IF = 0;
+        HandleTimingInterrupt();
     }
     else if (CCP3IF && CCP3IE)
     {
-        // Shooting logic
-
-        // Send MSB first
-        static unsigned char shot_data_index = SHOT_DATA_LENGTH;
-        static bool_t next_edge_rising = TRUE;
-
-        if (next_edge_rising)
-        {
-            PIN_SHOT_LIGHT = HIGH;
-            shot_data_index--;
-            TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
-                ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
-            CCPR3 = TMR1 + pulse_width;
-            next_edge_rising = FALSE;
-        }
-        else // !next_edge_rising
-        {
-            PIN_SHOT_LIGHT = LOW;
-            next_edge_rising = TRUE;
-
-            if (shot_data_index == 0)
-            {
-                // This is the final falling edge of the shot, reset the data
-                // index and disable CCP3 interrupts
-                shot_data_index = SHOT_DATA_LENGTH;
-                // Disable CCP3 interrupts
-                CCP3IE = 0;
-            }
-            else
-            {
-                CCPR3 = TMR1 + PULSE_GAP_WIDTH;
-            }
-        }
-
-        // Reset flag
-        CCP3IF = 0;
+        HandleShootingInterrupt();
     }
     else
     {
-        // Shot reception logic
-
-        // Counts timer1 overflows, capped at 2
-        static unsigned char overflow_count;
-
-        // Data accumulator
-        static unsigned char data = 0;
-        static unsigned char bit_count = 0;
-
-        if (TMR1IF && TMR1IE)
-        {
-            overflow_count++;
-
-            if (overflow_count == 2)
-            {
-                // Once we hit two, turn off interrupts. We don't want to
-                // increment further.
-                TMR1IE = 0;
-            }
-
-            // Reset flag
-            TMR1IF = 0;
-        }
-        else if (CCP2IF && CCP2IE)
-        {
-            // Falling edge detected (start of pulse, end of silence)
-            
-            TMR1IF = 0;
-
-            TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
-
-            if ( pulse_width > 1500 )
-            {
-                // Long silence. Reset
-                data = 0;
-                bit_count = 0;
-
-                // Re-enable end-of-pulse interrupts, in case we disabled them
-                CCP1IF = 0;
-                CCP1IE = 1;
-            }
-
-            overflow_count = 0;
-            TMR1IE = 1;
-            CCP2IF = 0;
-        }
-        else if (CCP1IF && CCP1IE)
-        {
-            // Rising edge detected (end of pulse, start of silence)
-
-            TMR1IF = 0;
-
-            TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
-
-            if (pulse_width > 2500 && pulse_width < 4000)
-            {
-                // Received a 0
-                data <<= 1;
-                bit_count++;
-            }
-            else if (pulse_width > 4500 && pulse_width < 6000)
-            {
-                // Received a 1
-                data = (data << 1) | 1;
-                bit_count++;
-            }
-            else
-            {
-                // Invalid pulse width. Something has gone wrong, so we're
-                // going to stop reading in data and wait until we see a
-                // long period of silence
-
-                // Disable end-of-pulse interrupts to stop reading data
-                CCP1IE = 0;
-            }
-
-            if (bit_count == SHOT_DATA_LENGTH)
-            {
-                shot_received = TRUE;
-                shot_data_received = data;
-
-                // We could just reset the data accumulator here and let more
-                // shot data come through immediately, on the off chance that
-                // the time between the end of one shot and the start of the
-                // next is less than the silence reset, but instead we're just
-                // going to wait for silence. This is more robust and has a
-                // negligible impact on shot throughput.
-                CCP1IE = 0;
-            }
-            
-            overflow_count = 0;
-            TMR1IE = 1;
-            CCP1IF = 0;
-        }
+        HandleShotReceptionInterrupt();
     }
 }
 
@@ -439,4 +295,167 @@ TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
     }
 
     return pulse_width;
+}
+
+void HandleTimingInterrupt(void)
+{
+    // Real-time timer logic
+
+    static count_t next_s = 1000;
+
+    ms_count++;
+
+    if (ms_count == next_s)
+    {
+        s_count++;
+        next_s = ms_count + 1000;
+    }
+
+    if (ms_count == shot_enable_ms_count)
+    {
+        can_shoot = TRUE;
+    }
+
+    // Preload timer
+    TMR0 = TMR0_PRELOAD;
+    // Reset flag
+    TMR0IF = 0;
+}
+
+void HandleShootingInterrupt(void)
+{
+    // Shooting logic
+
+    // Send MSB first
+    static unsigned char shot_data_index = SHOT_DATA_LENGTH;
+    static bool_t next_edge_rising = TRUE;
+
+    if (next_edge_rising)
+    {
+        PIN_SHOT_LIGHT = HIGH;
+        shot_data_index--;
+        TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
+            ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
+        CCPR3 = TMR1 + pulse_width;
+        next_edge_rising = FALSE;
+    }
+    else // !next_edge_rising
+    {
+        PIN_SHOT_LIGHT = LOW;
+        next_edge_rising = TRUE;
+
+        if (shot_data_index == 0)
+        {
+            // This is the final falling edge of the shot, reset the data
+            // index and disable CCP3 interrupts
+            shot_data_index = SHOT_DATA_LENGTH;
+            // Disable CCP3 interrupts
+            CCP3IE = 0;
+        }
+        else
+        {
+            CCPR3 = TMR1 + PULSE_GAP_WIDTH;
+        }
+    }
+
+    // Reset flag
+    CCP3IF = 0;
+}
+
+void HandleShotReceptionInterrupt(void)
+{
+    // Shot reception logic
+
+    // Counts timer1 overflows, capped at 2
+    static unsigned char overflow_count;
+
+    // Data accumulator
+    static unsigned char data = 0;
+    static unsigned char bit_count = 0;
+
+    if (TMR1IF && TMR1IE)
+    {
+        overflow_count++;
+
+        if (overflow_count == 2)
+        {
+            // Once we hit two, turn off interrupts. We don't want to
+            // increment further.
+            TMR1IE = 0;
+        }
+
+        // Reset flag
+        TMR1IF = 0;
+    }
+    else if (CCP2IF && CCP2IE)
+    {
+        // Falling edge detected (start of pulse, end of silence)
+
+        TMR1IF = 0;
+
+        TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
+
+        if ( pulse_width > 1500 )
+        {
+            // Long silence. Reset
+            data = 0;
+            bit_count = 0;
+
+            // Re-enable end-of-pulse interrupts, in case we disabled them
+            CCP1IF = 0;
+            CCP1IE = 1;
+        }
+
+        overflow_count = 0;
+        TMR1IE = 1;
+        CCP2IF = 0;
+    }
+    else if (CCP1IF && CCP1IE)
+    {
+        // Rising edge detected (end of pulse, start of silence)
+
+        TMR1IF = 0;
+
+        TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
+
+        if (pulse_width > 2500 && pulse_width < 4000)
+        {
+            // Received a 0
+            data <<= 1;
+            bit_count++;
+        }
+        else if (pulse_width > 4500 && pulse_width < 6000)
+        {
+            // Received a 1
+            data = (data << 1) | 1;
+            bit_count++;
+        }
+        else
+        {
+            // Invalid pulse width. Something has gone wrong, so we're
+            // going to stop reading in data and wait until we see a
+            // long period of silence
+
+            // Disable end-of-pulse interrupts to stop reading data
+            CCP1IE = 0;
+        }
+
+        if (bit_count == SHOT_DATA_LENGTH)
+        {
+            shot_received = TRUE;
+            shot_data_received = data;
+
+            // We could just reset the data accumulator here and let more
+            // shot data come through immediately, on the off chance that
+            // the time between the end of one shot and the start of the
+            // next is less than the silence reset, but instead we're just
+            // going to wait for silence. This is more robust and has a
+            // negligible impact on shot throughput.
+            CCP1IE = 0;
+        }
+
+        overflow_count = 0;
+        TMR1IE = 1;
+        CCP1IF = 0;
+    }
 }
