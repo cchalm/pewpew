@@ -259,26 +259,24 @@ TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
      * measurement, and "second" refers to the second measurement.
      *
      * Case 1: overflow_counter == 2
-     *  Timer1 has overflowed at least twice during this period of
-     *  silence. This means at least one full timer cycle has elapsed
-     *  (one overflow for the beginning of the cycle, one for the end).
+     *  Timer1 has overflowed at least twice during this period of silence.
+     *  This means at least one full timer cycle has elapsed (one overflow for
+     *  the beginning of the cycle, one for the end).
      *
-     * Case 2: overflow_counter == 1 && CCPR2 >= CCPR1
-     *  Timer1 has overflowed exactly once during this period of
-     *  silence, and the time (in terms of timer1 ticks) of the end of
-     *  the silence is greater than or equal to the time of the start.
-     *  The silence started in some timer cycle, and ended at the same
-     *  time or later in the next timer cycle, so more than one timer
-     *  cycle has elapsed.
+     * Case 2: overflow_counter == 1 && second >= first
+     *  Timer1 has overflowed exactly once during this period of silence, and
+     *  the time (in terms of timer1 ticks) of the end of the silence is greater
+     *  than or equal to the time of the start. The silence started in some
+     *  timer cycle, and ended at the same time or later in the next timer
+     *  cycle, so more than one timer cycle has elapsed.
      *
-     * Case 3: (TMR1_t)(CCPR2 - CCPR1)
-     *  If overflow_counter == 1, we know CCPR2 < CCPR1 because
-     *  otherwise we would have gone with case 2. The result of the
-     *  subtraction will underflow when cast and produce the correct
-     *  value for elapsed ticks (you can verify this with a simple
-     *  number line). If overflow_counter == 0, CCPR2 will be greater
-     *  than CCPR1 and this is a simple subtraction to get elapsed
-     *  ticks.
+     * Case 3: (TMR1_t)(second - first)
+     *  If overflow_counter == 1, we know second < first because otherwise we
+     *  would have gone with case 2. The result of the subtraction will
+     *  underflow when cast and produce the correct value for elapsed ticks (you
+     *  can verify this with a simple number line). If overflow_counter == 0,
+     *  second will be greater than first and this is a simple subtraction to
+     *  get elapsed ticks.
      */
 
     TMR1_t pulse_width;
