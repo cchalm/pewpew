@@ -255,40 +255,47 @@ TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
 {
     /*
      * When measuring the length of a pulse using two TMR1 measurements, there
-     * are three cases to consider. Below, "first" refers to the first
-     * measurement, and "second" refers to the second measurement.
+     * are four cases to consider, covering every possible outcome. Below,
+     * "first" refers to the first measurement, and "second" refers to the
+     * second measurement.
      *
      * Case 1: overflow_counter == 2
+     *  time = (TMR1_t)(-1)
      *  Timer1 has overflowed at least twice during this period of silence.
      *  This means at least one full timer cycle has elapsed (one overflow for
      *  the beginning of the cycle, one for the end).
      *
      * Case 2: overflow_counter == 1 && second >= first
+     *  time = (TMR1_t)(-1)
      *  Timer1 has overflowed exactly once during this period of silence, and
      *  the time (in terms of timer1 ticks) of the end of the silence is greater
      *  than or equal to the time of the start. The silence started in some
      *  timer cycle, and ended at the same time or later in the next timer
      *  cycle, so more than one timer cycle has elapsed.
      *
-     * Case 3: (TMR1_t)(second - first)
-     *  If overflow_counter == 1, we know second < first because otherwise we
-     *  would have gone with case 2. The result of the subtraction will
+     * Case 3: overflow_counter == 1 && second < first
+     *  time = (TMR1_t)(second - first)
+     *  The silence started in some timer cycle, and ended at an earlier count
+     *  in the next timer cycle. second - first will be negative, but it will
      *  underflow when cast and produce the correct value for elapsed ticks (you
-     *  can verify this with a simple number line). If overflow_counter == 0,
-     *  second will be greater than first and this is a simple subtraction to
-     *  get elapsed ticks.
+     *  can verify this with a simple number line).
+     *
+     * Case 4: overflow_counter == 0
+     *  time = (TMR1_t)(second - first)
+     *  Timer hasn't overflowed, simple subtraction to get elapsed time. second
+     *  is guaranteed to be greater than or equal to first.
      */
 
     TMR1_t pulse_width;
     if ( (overflow_count == 2) ||
          (overflow_count == 1 && second >= first) )
     {
-        // At least one full timer cycle has elapsed, set pulse_width to
-        // the maximum value of a TMR1_t
+        // Cases 1 and 2
         pulse_width = (TMR1_t)(-1);
     }
     else
     {
+        // Cases 3 and 4
         pulse_width = (TMR1_t)(second - first);
     }
 
