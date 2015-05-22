@@ -403,7 +403,7 @@ void HandleShotReceptionInterrupt(void)
 
         TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
 
-        if ( pulse_width > 1500 )
+        if ( pulse_width > 2500 )
         {
             // Long silence. Reset
             data = 0;
@@ -426,13 +426,15 @@ void HandleShotReceptionInterrupt(void)
 
         TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
 
-        if (pulse_width > 2500 && pulse_width < 4000)
+        // The upper-bound on the pulse width is high because the first pulse
+        // received is always ~500 ticks longer than the rest
+        if (pulse_width > 1500 && pulse_width < 3000)
         {
             // Received a 0
             data <<= 1;
             bit_count++;
         }
-        else if (pulse_width > 4500 && pulse_width < 6000)
+        else if (pulse_width > 3500 && pulse_width < 5000)
         {
             // Received a 1
             data = (data << 1) | 1;
