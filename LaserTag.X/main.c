@@ -47,6 +47,8 @@ typedef unsigned int count_t;
 // Delay between shots in ms
 #define SHOT_DELAY 1000/FIRE_RATE
 
+#define FULL_AUTO FALSE
+
 #define SHOT_DATA_LENGTH 8
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
@@ -158,10 +160,11 @@ int main(void) {
         trigger_pressed = (input_state >> TRIGGER_OFFSET) & 1 == TRIGGER_PRESSED;
         mag_in = (input_state >> RELOAD_OFFSET) & 1 == MAG_IN;
 
-        // If the trigger is pressed, it wasn't pressed before, and the shot
-        // timer has elapsed, try to shoot
-        if (trigger_pressed && !trigger_was_pressed && can_shoot)
+        if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && can_shoot)
         {
+            // The trigger is pressed, it wasn't pressed before, and the shot
+            // timer has elapsed; try to shoot
+
             // Make sure we have ammo and the magazine is in
             if (mag_in && ammo)
             {
@@ -178,11 +181,11 @@ int main(void) {
             shot_enable_ms_count = ms_count + SHOT_DELAY;
             can_shoot = FALSE;
         }
-        else // Trigger not pressed
+        else if (!FULL_AUTO)
         {
-            // Only enable shot a short time after releasing the trigger. This
-            // is to prevent button bounces from causing shots when releasing
-            // the trigger
+            // When in semi-auto mode, only enable shot a short time after
+            // releasing the trigger. This is to prevent button bounces from
+            // causing shots when releasing the trigger
             if (trigger_was_pressed && (shot_enable_ms_count - ms_count < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
