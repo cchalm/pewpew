@@ -264,22 +264,22 @@ TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
      *
      * Case 1: overflow_counter == 2
      *  time = (TMR1_t)(-1)
-     *  Timer1 has overflowed at least twice during this period of silence.
-     *  This means at least one full timer cycle has elapsed (one overflow for
-     *  the beginning of the cycle, one for the end).
+     *  Timer1 has overflowed at least twice during this pulse. This means at
+     *  least one full timer cycle has elapsed (one overflow for the beginning
+     *  of the cycle, one for the end).
      *
      * Case 2: overflow_counter == 1 && second >= first
      *  time = (TMR1_t)(-1)
-     *  Timer1 has overflowed exactly once during this period of silence, and
-     *  the time (in terms of timer1 ticks) of the end of the silence is greater
-     *  than or equal to the time of the start. The silence started in some
-     *  timer cycle, and ended at the same time or later in the next timer
-     *  cycle, so more than one timer cycle has elapsed.
+     *  Timer1 has overflowed exactly once during this pulse, and the time (in
+     *  terms of timer1 ticks) of the end of the pulse is greater than or equal
+     *  to the time of the start. The pulse started in some timer cycle, and
+     *  ended at the same time or later in the next timer cycle, so more than
+     *  one timer cycle has elapsed.
      *
      * Case 3: overflow_counter == 1 && second < first
      *  time = (TMR1_t)(second - first)
-     *  The silence started in some timer cycle, and ended at an earlier count
-     *  in the next timer cycle. second - first will be negative, but it will
+     *  The pulse started in some timer cycle, and ended at an earlier count in
+     *  the next timer cycle. second - first will be negative, but it will
      *  underflow when cast and produce the correct value for elapsed ticks (you
      *  can verify this with a simple number line).
      *
