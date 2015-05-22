@@ -80,7 +80,6 @@ bool_t trigger_pressed;
 bool_t trigger_was_pressed;
 
 unsigned char shot_data_to_send;
-volatile bool_t shot_requested;
 
 volatile unsigned char shot_data_received;
 volatile bool_t shot_received;
@@ -120,7 +119,6 @@ int main(void) {
     shot_enable_ms_count = 0;
 
     shot_data_to_send = 0b01010101;
-    shot_requested = FALSE;
 
     health = MAX_HEALTH;
     ammo = MAX_AMMO;
