@@ -45,7 +45,7 @@ typedef unsigned int count_t;
 // Shots per second
 #define FIRE_RATE 10
 // Delay between shots in ms
-#define SHOT_DELAY 1000/FIRE_RATE
+#define SHOT_DELAY 1000/(FIRE_RATE)
 
 #define FULL_AUTO FALSE
 
@@ -107,6 +107,15 @@ int main(void) {
     LATD = 0b1111;
     LATB = 0b111111;
 
+    setLEDDisplay(0b10101010);
+    delay(400);
+    setLEDDisplay(0b00000000);
+    delay(400);
+    setLEDDisplay(0b10101010);
+    delay(400);
+    setLEDDisplay(0b00000000);
+    delay(400);
+
     can_shoot = TRUE;
     shot_enable_ms_count = 0;
 
@@ -119,8 +128,8 @@ int main(void) {
 
     // Set the "was" variables for use on the first loop iteration
     input_state = INPUT_PORT;
-    trigger_was_pressed = PIN_TRIGGER == TRIGGER_PRESSED;
-    mag_was_out = PIN_RELOAD == MAG_OUT;
+    trigger_was_pressed = (input_state >> TRIGGER_OFFSET) & 1 == TRIGGER_PRESSED;
+    mag_was_out = (input_state >> RELOAD_OFFSET) & 1 == MAG_OUT;
     
     PIN_SHOT_LIGHT = LOW;
 
