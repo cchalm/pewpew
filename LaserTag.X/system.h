@@ -48,9 +48,31 @@ typedef unsigned short TMR1_t;
 
 #define TMR0_PRELOAD 5 // 255 - 250
 
-// These values must be less than half of the max value of the TMR1 register.
-// These numbers could probably be a little lower, but these values are robust.
-#define PULSE_GAP_WIDTH 2000
+/*
+ * These values must be less than half of the max value of the TMR1 register.
+ *
+ * Our sensor is a TSOP2240 @ 40kHz. The datasheet specifies that each pulse
+ * must be at least 10 cycles, and that the gap between pulses must be at least
+ * 12 cycles. TMR1 clocks at 8MHz. 10 cycles @ 40kHz == 2000 cycles @ 8MHz, and
+ * 12 cycles @ 40kHz == 2400 cycles @ 8MHz.
+ *
+ * Pulses greater than 70 cycles must be separated by gaps of at least 4x the
+ * pulse length, so make sure these values are less than 14k.
+ *
+ * We should aim to use the TSOP2440 in the future - it is better at filtering
+ * out noise. It has the same specifications as above, except that the maximum
+ * pulse length before requiring a long silence is 35 cycles instead of 70.
+ *
+ * The frequency of the sensor is the bottleneck of our system right now.
+ * TSOP2*56 sensors receive @ 56kHz, so we may want to consider that in the
+ * future as well.
+ *
+ * With the TSOP2*40, a zero pulse 250us, a one pulse is 500us, and the pulse
+ * gap is 300us. The final gap is at least 3000 TMR1 cycles, or 375us. An
+ * eight-bit transmission is thus at least 250*8+300*7+375 = 4475 (4.475ms) and
+ * at most 500*8+300*7+375 = 6475 (6.475ms) long.
+ */
+#define PULSE_GAP_WIDTH 2400
 #define ZERO_PULSE_WIDTH 2000
 #define ONE_PULSE_WIDTH 4000
 

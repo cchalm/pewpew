@@ -46,14 +46,14 @@ typedef unsigned int count_t;
 #define FIRE_RATE 10
 // Delay between shots in ms
 #define SHOT_DELAY 1000/(FIRE_RATE)
-
-#define FULL_AUTO FALSE
-
+#define FULL_AUTO TRUE
 #define SHOT_DATA_LENGTH 8
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
 // be registered. This is to mitigate button bounce.
 #define BOUNCE_DELAY 2
+
+#define DEBUG FALSE
 
 enum
 {
@@ -84,6 +84,9 @@ unsigned char shot_data_to_send;
 volatile unsigned char shot_data_received;
 volatile bool_t shot_received;
 
+volatile TMR1_t pulses_received[8];
+volatile TMR1_t gaps_received[8];
+
 unsigned char input_state;
 
 void setHealthDisplay(unsigned char value);
@@ -106,13 +109,13 @@ int main(void) {
     LATD = 0b1111;
     LATB = 0b111111;
 
-    setLEDDisplay(0b10101010);
+    setLEDDisplay(0b1010101010);
     delay(400);
-    setLEDDisplay(0b00000000);
+    setLEDDisplay(0b0000000000);
     delay(400);
-    setLEDDisplay(0b10101010);
+    setLEDDisplay(0b1010101010);
     delay(400);
-    setLEDDisplay(0b00000000);
+    setLEDDisplay(0b0000000000);
     delay(400);
 
     can_shoot = TRUE;
@@ -149,14 +152,13 @@ int main(void) {
         {
             // Make a copy so it doesn't get overwritten
             unsigned char player_id = shot_data_received;
+            setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
             NOP();
             PIN_HIT_LIGHT = 1;
 
             // Look up player ID
-            if (player_id != shot_data_to_send)
-                error(INVALID_SHOT_DATA_RECEIVED);
 
             shot_received = FALSE;
         }
@@ -202,13 +204,13 @@ int main(void) {
         }
 
         if (!mag_in)
-            setHealthDisplay(0);
+            //setHealthDisplay(0);
 
         if (mag_in && mag_was_out)
         {
             // Mag has been put back in, reload
             ammo = MAX_AMMO;
-            setHealthDisplay(ammo);
+            //setHealthDisplay(ammo);
         }
 
         // Update "was" variables
@@ -250,8 +252,8 @@ void shoot(void)
     CCP3IF = 1;
     CCP3IE = 1;
     flash();
-    ammo--;
-    setHealthDisplay(ammo);
+    //ammo--;
+    //setLEDDisplay(shot_data_to_send);
 }
 
 void flash(void)
@@ -406,11 +408,14 @@ void HandleShotReceptionInterrupt(void)
     {
         // Falling edge detected (start of pulse, end of silence)
 
-        TMR1IF = 0;
+        // CCP1 is the start time of the silence
+        // CCP2 is the end time of the silence
 
         TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
+        gaps_received[bit_count] = pulse_width;
 
-        if ( pulse_width > 2500 )
+        if ( (pulse_width > 3000 && !DEBUG) ||
+             (bit_count == SHOT_DATA_LENGTH && DEBUG) )
         {
             // Long silence. Reset
             data = 0;
@@ -421,17 +426,42 @@ void HandleShotReceptionInterrupt(void)
             CCP1IE = 1;
         }
 
-        overflow_count = 0;
+        // Pause timer 1, so that we don't have to worry about it overflowing
+        // between the next several instructions.
+        TMR1ON = 0;
+        /* 
+         * We need to reset the overflow count for the next cycle. Timing for
+         * the next cycle is happening asynchronously right now, so if an
+         * overflow has occurred since we started handling this interrupt, we
+         * need to record it for the next cycle.
+         *
+         * We can assume the timer has not gone through a full cycle in this
+         * time because a full cycle even at 8MHz takes 8ms. Given this
+         * assumption, if the current timer value (which is frozen) is less than
+         * the timer value when we started this interrupt handler, the timer has
+         * overflowed exactly once. Otherwise, it hasn't overflowed.
+         */
+        overflow_count = TMR1 < CCPR2 ? 1 : 0;
+        // We handled the possible overflow above, so reset the timer interrupt
+        // to avoid handling the same overflow twice.
+        TMR1IF = 0;
+        // Enable timer 1 interrupts, which may have been disabled because we
+        // were already at two timer overflows.
         TMR1IE = 1;
+        // Resume timer 1
+        TMR1ON = 1;
+        
         CCP2IF = 0;
     }
     else if (CCP1IF && CCP1IE)
     {
         // Rising edge detected (end of pulse, start of silence)
 
-        TMR1IF = 0;
+        // CCP2 is the start time of the pulse
+        // CCP1 is the end time of the pulse
 
         TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
+        pulses_received[bit_count] = pulse_width;
 
         // The upper-bound on the pulse width is high because the first pulse
         // received is always ~500 ticks longer than the rest
@@ -453,8 +483,11 @@ void HandleShotReceptionInterrupt(void)
             // going to stop reading in data and wait until we see a
             // long period of silence
 
-            // Disable end-of-pulse interrupts to stop reading data
-            CCP1IE = 0;
+            if (DEBUG)
+                bit_count++;
+            else
+                // Disable end-of-pulse interrupts to stop reading data
+                CCP1IE = 0;
         }
 
         if (bit_count == SHOT_DATA_LENGTH)
@@ -471,8 +504,13 @@ void HandleShotReceptionInterrupt(void)
             CCP1IE = 0;
         }
 
-        overflow_count = 0;
+        // See comments on similar lines above
+        TMR1ON = 0;
+        TMR1IF = 0;
+        overflow_count = TMR1 < CCPR1 ? 1 : 0;
         TMR1IE = 1;
+        TMR1ON = 1;
+
         CCP1IF = 0;
     }
 }
