@@ -47,7 +47,7 @@ typedef unsigned int count_t;
 // Delay between shots in ms
 #define SHOT_DELAY 1000/(FIRE_RATE)
 #define FULL_AUTO TRUE
-#define SHOT_DATA_LENGTH 8
+#define SHOT_DATA_LENGTH 10
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
 // be registered. This is to mitigate button bounce.
@@ -79,13 +79,13 @@ bool_t mag_was_out;
 bool_t trigger_pressed;
 bool_t trigger_was_pressed;
 
-unsigned char shot_data_to_send;
+unsigned int shot_data_to_send;
 
-volatile unsigned char shot_data_received;
+volatile unsigned int shot_data_received;
 volatile bool_t shot_received;
 
-volatile TMR1_t pulses_received[8];
-volatile TMR1_t gaps_received[8];
+volatile TMR1_t pulses_received[SHOT_DATA_LENGTH];
+volatile TMR1_t gaps_received[SHOT_DATA_LENGTH];
 
 unsigned char input_state;
 
@@ -121,7 +121,7 @@ int main(void) {
     can_shoot = TRUE;
     shot_enable_ms_count = 0;
 
-    shot_data_to_send = 0b01010101;
+    shot_data_to_send = 0b0101010101;
 
     health = MAX_HEALTH;
     ammo = MAX_AMMO;
@@ -151,7 +151,7 @@ int main(void) {
         if (shot_received)
         {
             // Make a copy so it doesn't get overwritten
-            unsigned char player_id = shot_data_received;
+            unsigned int player_id = shot_data_received;
             setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
@@ -159,6 +159,8 @@ int main(void) {
             PIN_HIT_LIGHT = 1;
 
             // Look up player ID
+            if (player_id != shot_data_to_send && !DEBUG)
+                error(INVALID_SHOT_DATA_RECEIVED);
 
             shot_received = FALSE;
         }
@@ -244,7 +246,7 @@ void setHealthDisplay(unsigned char value)
 
 void shoot(void)
 {
-    shot_data_to_send = (shot_data_to_send << 1) | (TMR0 % 2);
+    shot_data_to_send = (shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
     // Enable CCP1 interrupts and immediately trigger an interrupt, which begins
     // the shot transmission. Manually setting the interrupt flag may not be the
     // best practice. Another option is to pull the shooting logic out of the
@@ -424,7 +426,7 @@ void HandleShotReceptionInterrupt(void)
     static unsigned char overflow_count;
 
     // Data accumulator
-    static unsigned char data = 0;
+    static unsigned int data = 0;
     static unsigned char bit_count = 0;
 
     if (TMR1IF && TMR1IE)
