@@ -38,12 +38,15 @@ void configureSystem(void)
     ANSELB = 0;
     ANSELC = 0;
     ANSELD = 0;
+    ANSELE = 0;
     // Set port B to output
     TRISB = 0;
     // Set D0 - D1 to input, D3 - D7 to output
     TRISD = 0b00000011;
-    // Set C0 to output, C1 - C2 to input
-    TRISC = 0b110;
+    // Set C0 and C2 to output, C1 to input
+    TRISC = 0b010;
+    // Set E0 to input
+    TRISE = 0b1;
 }
 
 void configurePSMC(void)
@@ -81,17 +84,17 @@ void configureCCP(void)
     //         | |   +- TMR1ON - Enable Timer1
     //        ||||   |
     T1CON = 0b00000001;
-    //                +-- CCP1M[3:0] - Set CCP1 to capture rising edges
+    //                +-- CCP1M[3:0] - Set CCP1 to toggle output on match
     //              |--|
-    CCP1CON = 0b00000101;
-    //                +-- CCP1M[3:0] - Set CCP2 to capture falling edges
+    CCP1CON = 0b00000010;
+    //                +-- CCP2M[3:0] - Set CCP2 to capture rising edges
     //              |--|
-    CCP2CON = 0b00000100;
-    //                +-- CCP3M[3:0] - Set CCP3 to generate a software interrupt on match
+    CCP2CON = 0b00000101;
+    //                +-- CCP3M[3:0] - Set CCP3 to capture falling edges
     //              |--|
-    CCP3CON = 0b00001010;
-    CCP1IE = 1;
+    CCP3CON = 0b00000100;
     CCP2IE = 1;
+    CCP3IE = 1;
 }
 
 void setLEDDisplay(unsigned int bits)

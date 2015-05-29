@@ -226,7 +226,7 @@ void interrupt ISR(void)
     {
         HandleTimingInterrupt();
     }
-    else if (CCP3IF && CCP3IE)
+    else if (CCP1IF && CCP1IE)
     {
         HandleShootingInterrupt();
     }
@@ -245,12 +245,12 @@ void setHealthDisplay(unsigned char value)
 void shoot(void)
 {
     shot_data_to_send = (shot_data_to_send << 1) | (TMR0 % 2);
-    // Enable CCP3 interrupts and immediately trigger an interrupt, which begins
+    // Enable CCP1 interrupts and immediately trigger an interrupt, which begins
     // the shot transmission. Manually setting the interrupt flag may not be the
     // best practice. Another option is to pull the shooting logic out of the
     // ISR and put it into another method, and then call that method here.
-    CCP3IF = 1;
-    CCP3IE = 1;
+    CCP1IF = 1;
+    CCP1IE = 1;
     flash();
     //ammo--;
     //setLEDDisplay(shot_data_to_send);
@@ -353,7 +353,7 @@ void HandleShootingInterrupt(void)
         shot_data_index--;
         TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
             ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
-        CCPR3 = TMR1 + pulse_width;
+        CCPR1 = TMR1 + pulse_width;
         next_edge_rising = FALSE;
     }
     else // !next_edge_rising
@@ -367,21 +367,58 @@ void HandleShootingInterrupt(void)
             // index and disable CCP3 interrupts
             shot_data_index = SHOT_DATA_LENGTH;
             // Disable CCP3 interrupts
-            CCP3IE = 0;
+            CCP1IE = 0;
         }
         else
         {
-            CCPR3 = TMR1 + PULSE_GAP_WIDTH;
+            CCPR1 = TMR1 + PULSE_GAP_WIDTH;
         }
     }
 
     // Reset flag
-    CCP3IF = 0;
+    CCP1IF = 0;
 }
 
 void HandleShotReceptionInterrupt(void)
 {
     // Shot reception logic
+
+    /*
+     * HOW IT WORKS
+     *
+     * A shot transmission contains some number of bits. A long pulse is a 1,
+     * and a short pulse is a 0, and these pulses are separated by a
+     * known-length silence.
+     *
+     * CCP modules can "capture" pin events like rising and falling edges. When
+     * the event occurs, the Timer1 register gets copied into the CCP register
+     * by the hardware. By examining the CCP register in software, we can know
+     * when that event occured.
+     *
+     * We have CCP2 set up to capture rising edges and CCP3 set up to capture
+     * falling edges. A rising edge represents the END of a pulse and the START
+     * of silence because TSOP2240 sensors are active low. To keep it simple,
+     * we'll say CCP3 captures the START of a pulse, and CCP2 captures the END
+     * of a pulse. We've also configured the modules to trigger interrupts when
+     * captures occur.
+     *
+     * When we get a CCP2 interrupt, we know a pulse has just ended. The CCP2
+     * register contains the time (the Timer1 count) that the pulse ended, and,
+     * critically, the CCP3 register contains the time that the pulse started.
+     * Subtract the end time from the start time and that's the pulse length.
+     * The comments in the getPulseWidth method describe in detail how we
+     * account for Timer1 overflows.
+     *
+     * If the pulse is an expected length, we handle the bit and continue. If it
+     * is an unexpected length, we disable end-of-pulse interrupts. We handle
+     * data when we see the ends of pulses, so disabling those interrupts stops
+     * data reception. We also stop accepting data after receiving the expected
+     * number of bits from a transmission.
+     *
+     * Data reception resets upon observing a long silence. Disabling
+     * end-of-pulse interrupts does NOT disable capture events, so pulses are
+     * still being timed.
+     */
 
     // Counts timer1 overflows, capped at 2
     static unsigned char overflow_count;
@@ -404,14 +441,14 @@ void HandleShotReceptionInterrupt(void)
         // Reset flag
         TMR1IF = 0;
     }
-    else if (CCP2IF && CCP2IE)
+    else if (CCP3IF && CCP3IE)
     {
         // Falling edge detected (start of pulse, end of silence)
 
-        // CCP1 is the start time of the silence
-        // CCP2 is the end time of the silence
+        // CCP2 is the start time of the silence
+        // CCP3 is the end time of the silence
 
-        TMR1_t pulse_width = getPulseWidth(CCPR1, CCPR2, overflow_count);
+        TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR3, overflow_count);
         gaps_received[bit_count] = pulse_width;
 
         if ( (pulse_width > 3000 && !DEBUG) ||
@@ -422,8 +459,8 @@ void HandleShotReceptionInterrupt(void)
             bit_count = 0;
 
             // Re-enable end-of-pulse interrupts, in case we disabled them
-            CCP1IF = 0;
-            CCP1IE = 1;
+            CCP2IF = 0;
+            CCP2IE = 1;
         }
 
         // Pause timer 1, so that we don't have to worry about it overflowing
@@ -441,7 +478,7 @@ void HandleShotReceptionInterrupt(void)
          * the timer value when we started this interrupt handler, the timer has
          * overflowed exactly once. Otherwise, it hasn't overflowed.
          */
-        overflow_count = TMR1 < CCPR2 ? 1 : 0;
+        overflow_count = TMR1 < CCPR3 ? 1 : 0;
         // We handled the possible overflow above, so reset the timer interrupt
         // to avoid handling the same overflow twice.
         TMR1IF = 0;
@@ -451,16 +488,16 @@ void HandleShotReceptionInterrupt(void)
         // Resume timer 1
         TMR1ON = 1;
         
-        CCP2IF = 0;
+        CCP3IF = 0;
     }
-    else if (CCP1IF && CCP1IE)
+    else if (CCP2IF && CCP2IE)
     {
         // Rising edge detected (end of pulse, start of silence)
 
-        // CCP2 is the start time of the pulse
-        // CCP1 is the end time of the pulse
+        // CCP3 is the start time of the pulse
+        // CCP2 is the end time of the pulse
 
-        TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR1, overflow_count);
+        TMR1_t pulse_width = getPulseWidth(CCPR3, CCPR2, overflow_count);
         pulses_received[bit_count] = pulse_width;
 
         // The upper-bound on the pulse width is high because the first pulse
@@ -487,7 +524,7 @@ void HandleShotReceptionInterrupt(void)
                 bit_count++;
             else
                 // Disable end-of-pulse interrupts to stop reading data
-                CCP1IE = 0;
+                CCP2IE = 0;
         }
 
         if (bit_count == SHOT_DATA_LENGTH)
@@ -507,10 +544,10 @@ void HandleShotReceptionInterrupt(void)
         // See comments on similar lines above
         TMR1ON = 0;
         TMR1IF = 0;
-        overflow_count = TMR1 < CCPR1 ? 1 : 0;
+        overflow_count = TMR1 < CCPR2 ? 1 : 0;
         TMR1IE = 1;
         TMR1ON = 1;
 
-        CCP1IF = 0;
+        CCP2IF = 0;
     }
 }
