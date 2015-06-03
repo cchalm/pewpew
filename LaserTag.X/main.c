@@ -247,6 +247,9 @@ void setHealthDisplay(unsigned char value)
 void shoot(void)
 {
     shot_data_to_send = (shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
+    TMR1ON = 0;
+    CCPR1 = TMR1;
+    TMR1ON = 1;
     // Enable CCP1 interrupts and immediately trigger an interrupt, which begins
     // the shot transmission. Manually setting the interrupt flag may not be the
     // best practice. Another option is to pull the shooting logic out of the
@@ -355,7 +358,9 @@ void HandleShootingInterrupt(void)
         shot_data_index--;
         TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
             ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
-        CCPR1 = TMR1 + pulse_width;
+
+        CCPR1 += pulse_width;
+        
         next_edge_rising = FALSE;
     }
     else // !next_edge_rising
@@ -373,7 +378,7 @@ void HandleShootingInterrupt(void)
         }
         else
         {
-            CCPR1 = TMR1 + PULSE_GAP_WIDTH;
+            CCPR1 += PULSE_GAP_WIDTH;
         }
     }
 
@@ -502,15 +507,13 @@ void HandleShotReceptionInterrupt(void)
         TMR1_t pulse_width = getPulseWidth(CCPR3, CCPR2, overflow_count);
         pulses_received[bit_count] = pulse_width;
 
-        // The upper-bound on the pulse width is high because the first pulse
-        // received is always ~500 ticks longer than the rest
-        if (pulse_width > 1500 && pulse_width < 3000)
+        if (pulse_width > 2000 && pulse_width < 3000)
         {
             // Received a 0
             data <<= 1;
             bit_count++;
         }
-        else if (pulse_width > 3500 && pulse_width < 5000)
+        else if (pulse_width > 4000 && pulse_width < 5000)
         {
             // Received a 1
             data = (data << 1) | 1;
@@ -545,8 +548,8 @@ void HandleShotReceptionInterrupt(void)
 
         // See comments on similar lines above
         TMR1ON = 0;
-        TMR1IF = 0;
         overflow_count = TMR1 < CCPR2 ? 1 : 0;
+        TMR1IF = 0;
         TMR1IE = 1;
         TMR1ON = 1;
 
