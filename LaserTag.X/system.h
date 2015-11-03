@@ -53,28 +53,30 @@ typedef unsigned short TMR1_t;
  *
  * Our sensor is a TSOP2240 @ 40kHz. The datasheet specifies that each pulse
  * must be at least 10 cycles, and that the gap between pulses must be at least
- * 12 cycles. TMR1 clocks at 8MHz. 10 cycles @ 40kHz == 2000 cycles @ 8MHz, and
- * 12 cycles @ 40kHz == 2400 cycles @ 8MHz.
+ * 12 cycles. TMR1 clocks at 1MHz (after prescaling). 10 cycles @ 40kHz == 250
+ * cycles @ 1MHz, and 12 cycles @ 40kHz == 300 cycles @ 1MHz. Note that at
+ * 1 MHz, a cycle takes one microsecond.
  *
- * Pulses greater than 70 cycles must be separated by gaps of at least 4x the
- * pulse length, so make sure these values are less than 14k.
+ * Remember: pulses greater than 70 cycles @ 40khz must be separated by gaps of
+ * at least 4x the pulse length, so make sure our pulse lengths for zeroes and
+ * ones do not exceed 1750 cycles @ 1MHz
  *
  * We should aim to use the TSOP2440 in the future - it is better at filtering
  * out noise. It has the same specifications as above, except that the maximum
  * pulse length before requiring a long silence is 35 cycles instead of 70.
  *
+ * With the TSOP2*40, a zero pulse is 250us, a one pulse is 500us, and the pulse
+ * gap is 300us. The final gap is at least 375 TMR1 cycles, or 375us. An
+ * eight-bit transmission is thus at least 250*8+300*7+375 = 4475 (4.475ms) and
+ * at most 500*8+300*7+375 = 6475 (6.475ms) long.
+ *
  * The frequency of the sensor is the bottleneck of our system right now.
  * TSOP2*56 sensors receive @ 56kHz, so we may want to consider that in the
  * future as well.
- *
- * With the TSOP2*40, a zero pulse 250us, a one pulse is 500us, and the pulse
- * gap is 300us. The final gap is at least 3000 TMR1 cycles, or 375us. An
- * eight-bit transmission is thus at least 250*8+300*7+375 = 4475 (4.475ms) and
- * at most 500*8+300*7+375 = 6475 (6.475ms) long.
  */
-#define PULSE_GAP_WIDTH 2400
-#define ZERO_PULSE_WIDTH 2000
-#define ONE_PULSE_WIDTH 4000
+#define PULSE_GAP_WIDTH 300
+#define ZERO_PULSE_WIDTH 250
+#define ONE_PULSE_WIDTH 500
 
 void configureSystem(void);
 // LSB is the first LED. 1 is on, 0 is off.

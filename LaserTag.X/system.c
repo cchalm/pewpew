@@ -80,10 +80,10 @@ void configurePSMC(void)
 void configureCCP(void)
 {
     //         +------- TMR1CS[1:0] - Set clock source: instruction clock (Fosc / 4)
-    //         | +----- T1CKPS[1:0] - Set prescaler 1:1
+    //         | +----- T1CKPS[1:0] - Set prescaler 1:8
     //         | |   +- TMR1ON - Enable Timer1
     //        ||||   |
-    T1CON = 0b00000001;
+    T1CON = 0b00110001;
     //                +-- CCP1M[3:0] - Set CCP1 to toggle output on match
     //              |--|
     CCP1CON = 0b00000010;

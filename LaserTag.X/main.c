@@ -483,13 +483,13 @@ void HandleShotReceptionInterrupt(void)
                                                    overflow_count);
                 pulses_received[bit_count] = pulse_width;
 
-                if (pulse_width > 2000 && pulse_width < 3000)
+                if (pulse_width > 250 && pulse_width < 375)
                 {
                     // Received a 0
                     data <<= 1;
                     bit_count++;
                 }
-                else if (pulse_width > 4000 && pulse_width < 5000)
+                else if (pulse_width > 500 && pulse_width < 625)
                 {
                     // Received a 1
                     data = (data << 1) | 1;
@@ -538,7 +538,7 @@ void HandleShotReceptionInterrupt(void)
 #endif
             
 #ifndef DEBUG
-            if (pulse_width > 3000)
+            if (pulse_width > 375)
 #else
             if (bit_count == SHOT_DATA_LENGTH)
 #endif
