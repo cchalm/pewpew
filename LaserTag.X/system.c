@@ -43,8 +43,8 @@ void configureSystem(void)
     TRISB = 0;
     // Set D0 - D1 to input, D3 - D7 to output
     TRISD = 0b00000011;
-    // Set C0 and C2 to output, C1 to input
-    TRISC = 0b010;
+    // Set C0 to output
+    TRISC = 0b0;
     // Set E0 to input
     TRISE = 0b1;
 }
@@ -87,13 +87,9 @@ void configureCCP(void)
     //                +-- CCP1M[3:0] - Set CCP1 to toggle output on match
     //              |--|
     CCP1CON = 0b00000010;
-    //                +-- CCP2M[3:0] - Set CCP2 to capture rising edges
-    //              |--|
-    CCP2CON = 0b00000101;
-    //                +-- CCP3M[3:0] - Set CCP3 to capture falling edges
+    //                +-- CCP2M[3:0] - Set CCP3 to capture falling edges
     //              |--|
     CCP3CON = 0b00000100;
-    CCP2IE = 1;
     CCP3IE = 1;
 }
 

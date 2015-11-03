@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   main.c
  * Author: Chris
  *
@@ -131,7 +131,7 @@ int main(void) {
     input_state = INPUT_PORT;
     trigger_was_pressed = (input_state >> TRIGGER_OFFSET) & 1 == TRIGGER_PRESSED;
     mag_was_out = (input_state >> RELOAD_OFFSET) & 1 == MAG_OUT;
-    
+
     PIN_SHOT_LIGHT = LOW;
 
     ms_count = 0;
@@ -164,7 +164,7 @@ int main(void) {
 
             shot_received = FALSE;
         }
-        
+
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
         input_state = INPUT_PORT;
@@ -360,7 +360,7 @@ void HandleShootingInterrupt(void)
             ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
 
         CCPR1 += pulse_width;
-        
+
         next_edge_rising = FALSE;
     }
     else // !next_edge_rising
@@ -371,9 +371,9 @@ void HandleShootingInterrupt(void)
         if (shot_data_index == 0)
         {
             // This is the final falling edge of the shot, reset the data
-            // index and disable CCP3 interrupts
+            // index and disable CCP1 interrupts
             shot_data_index = SHOT_DATA_LENGTH;
-            // Disable CCP3 interrupts
+            // Disable CCP1 interrupts
             CCP1IE = 0;
         }
         else
@@ -400,7 +400,15 @@ void HandleShotReceptionInterrupt(void)
      * CCP modules can "capture" pin events like rising and falling edges. When
      * the event occurs, the Timer1 register gets copied into the CCP register
      * by the hardware. By examining the CCP register in software, we can know
-     * when that event occured.
+     * when that event occurred.
+     * 
+     * We're using CCP2 to time both rising and falling edges on the IR sensor
+     * data wire. The module can only be set up to capture one edge or the
+     * other, so each time we capture an edge we reconfigure the module to look
+     * for the opposite edge.
+     * 
+     * OLD TEXT. The text below does not describe the current operation of this
+     * method.
      *
      * We have CCP2 set up to capture rising edges and CCP3 set up to capture
      * falling edges. A rising edge represents the END of a pulse and the START
@@ -434,6 +442,12 @@ void HandleShotReceptionInterrupt(void)
     static unsigned int data = 0;
     static unsigned char bit_count = 0;
 
+    static bool_t wait_for_silence = FALSE;
+    
+    static bool_t next_edge_rising = FALSE;
+    static TMR1_t rise_time = 0;
+    static TMR1_t fall_time = 0;
+
     if (TMR1IF && TMR1IE)
     {
         overflow_count++;
@@ -450,30 +464,98 @@ void HandleShotReceptionInterrupt(void)
     }
     else if (CCP3IF && CCP3IE)
     {
-        // Falling edge detected (start of pulse, end of silence)
-
-        // CCP2 is the start time of the silence
-        // CCP3 is the end time of the silence
-
-        TMR1_t pulse_width = getPulseWidth(CCPR2, CCPR3, overflow_count);
-        gaps_received[bit_count] = pulse_width;
-
-        if ( (pulse_width > 3000 && !DEBUG) ||
-             (bit_count == SHOT_DATA_LENGTH && DEBUG) )
+        if (next_edge_rising)
         {
-            // Long silence. Reset
-            data = 0;
-            bit_count = 0;
+            // Rising edge detected (end of pulse, start of silence)
+            // CCPR2 is the new rise time
 
-            // Re-enable end-of-pulse interrupts, in case we disabled them
-            CCP2IF = 0;
-            CCP2IE = 1;
+            rise_time = CCPR3;
+            
+            // Only process the pulse if we're not waiting for a long silence to
+            // reset.
+            if (!wait_for_silence)
+            {
+                TMR1_t pulse_width = getPulseWidth(fall_time, rise_time,
+                                                   overflow_count);
+                pulses_received[bit_count] = pulse_width;
+
+                if (pulse_width > 2000 && pulse_width < 3000)
+                {
+                    // Received a 0
+                    data <<= 1;
+                    bit_count++;
+                }
+                else if (pulse_width > 4000 && pulse_width < 5000)
+                {
+                    // Received a 1
+                    data = (data << 1) | 1;
+                    bit_count++;
+                }
+                else
+                {
+                    // Invalid pulse width. Something has gone wrong, so we're
+                    // going to stop reading in data and wait until we see a
+                    // long period of silence
+
+                    if (DEBUG)
+                        bit_count++;
+                    else
+                        wait_for_silence = TRUE;
+                }
+
+                if (bit_count == SHOT_DATA_LENGTH)
+                {
+                    shot_received = TRUE;
+                    shot_data_received = data;
+
+                    // We could just reset the data accumulator here and let
+                    // more shot data come through immediately, on the off
+                    // chance that the time between the end of one shot and the
+                    // start of the next is less than the silence reset, but
+                    // instead we're just going to wait for silence. This is
+                    // more robust and has a negligible impact on shot
+                    // throughput.
+                    wait_for_silence = TRUE;
+                }
+            }
         }
+        else // !next_edge_rising
+        {
+            // Falling edge detected (start of pulse, end of silence)
+            // CCPR2 is the new fall time
+
+            fall_time = CCPR3;
+
+            TMR1_t pulse_width = getPulseWidth(rise_time, fall_time,
+                                               overflow_count);
+            if (DEBUG)
+                gaps_received[bit_count] = pulse_width;
+
+            if ( (pulse_width > 3000 && !DEBUG) ||
+                 (bit_count == SHOT_DATA_LENGTH && DEBUG) )
+            {
+                // Long silence. Reset
+                data = 0;
+                bit_count = 0;
+
+                wait_for_silence = FALSE;
+            }
+        }
+        
+        next_edge_rising = !next_edge_rising;
+
+        // Toggle the edge we're looking for. This can cause spurious
+        // interrupts, so we disable them during the change.
+        CCP3IE = 0;
+        // 1 to capture rising edges, 0 to capture falling edges
+        CCP3M0 = next_edge_rising;
+        CCP3IF = 0;
+        CCP3IE = 1;
 
         // Pause timer 1, so that we don't have to worry about it overflowing
         // between the next several instructions.
         TMR1ON = 0;
-        /* 
+        /*
          * We need to reset the overflow count for the next cycle. Timing for
          * the next cycle is happening asynchronously right now, so if an
          * overflow has occurred since we started handling this interrupt, we
@@ -494,65 +576,5 @@ void HandleShotReceptionInterrupt(void)
         TMR1IE = 1;
         // Resume timer 1
         TMR1ON = 1;
-        
-        CCP3IF = 0;
-    }
-    else if (CCP2IF && CCP2IE)
-    {
-        // Rising edge detected (end of pulse, start of silence)
-
-        // CCP3 is the start time of the pulse
-        // CCP2 is the end time of the pulse
-
-        TMR1_t pulse_width = getPulseWidth(CCPR3, CCPR2, overflow_count);
-        pulses_received[bit_count] = pulse_width;
-
-        if (pulse_width > 2000 && pulse_width < 3000)
-        {
-            // Received a 0
-            data <<= 1;
-            bit_count++;
-        }
-        else if (pulse_width > 4000 && pulse_width < 5000)
-        {
-            // Received a 1
-            data = (data << 1) | 1;
-            bit_count++;
-        }
-        else
-        {
-            // Invalid pulse width. Something has gone wrong, so we're
-            // going to stop reading in data and wait until we see a
-            // long period of silence
-
-            if (DEBUG)
-                bit_count++;
-            else
-                // Disable end-of-pulse interrupts to stop reading data
-                CCP2IE = 0;
-        }
-
-        if (bit_count == SHOT_DATA_LENGTH)
-        {
-            shot_received = TRUE;
-            shot_data_received = data;
-
-            // We could just reset the data accumulator here and let more
-            // shot data come through immediately, on the off chance that
-            // the time between the end of one shot and the start of the
-            // next is less than the silence reset, but instead we're just
-            // going to wait for silence. This is more robust and has a
-            // negligible impact on shot throughput.
-            CCP1IE = 0;
-        }
-
-        // See comments on similar lines above
-        TMR1ON = 0;
-        overflow_count = TMR1 < CCPR2 ? 1 : 0;
-        TMR1IF = 0;
-        TMR1IE = 1;
-        TMR1ON = 1;
-
-        CCP2IF = 0;
     }
 }
