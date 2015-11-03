@@ -53,7 +53,7 @@ typedef unsigned int count_t;
 // be registered. This is to mitigate button bounce.
 #define BOUNCE_DELAY 2
 
-#define DEBUG FALSE
+//#define DEBUG
 
 enum
 {
@@ -85,7 +85,9 @@ volatile unsigned int shot_data_received;
 volatile bool_t shot_received;
 
 volatile TMR1_t pulses_received[SHOT_DATA_LENGTH];
+#ifdef DEBUG
 volatile TMR1_t gaps_received[SHOT_DATA_LENGTH];
+#endif
 
 unsigned char input_state;
 
@@ -159,8 +161,10 @@ int main(void) {
             PIN_HIT_LIGHT = 1;
 
             // Look up player ID
-            if (player_id != shot_data_to_send && !DEBUG)
+#ifndef DEBUG
+            if (player_id != shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
+#endif
 
             shot_received = FALSE;
         }
@@ -497,10 +501,11 @@ void HandleShotReceptionInterrupt(void)
                     // going to stop reading in data and wait until we see a
                     // long period of silence
 
-                    if (DEBUG)
-                        bit_count++;
-                    else
-                        wait_for_silence = TRUE;
+#ifndef DEBUG
+                    wait_for_silence = TRUE;
+#else
+                    bit_count++;
+#endif
                 }
 
                 if (bit_count == SHOT_DATA_LENGTH)
@@ -528,11 +533,15 @@ void HandleShotReceptionInterrupt(void)
 
             TMR1_t pulse_width = getPulseWidth(rise_time, fall_time,
                                                overflow_count);
-            if (DEBUG)
-                gaps_received[bit_count] = pulse_width;
-
-            if ( (pulse_width > 3000 && !DEBUG) ||
-                 (bit_count == SHOT_DATA_LENGTH && DEBUG) )
+#ifdef DEBUG
+            gaps_received[bit_count] = pulse_width;
+#endif
+            
+#ifndef DEBUG
+            if (pulse_width > 3000)
+#else
+            if (bit_count == SHOT_DATA_LENGTH)
+#endif
             {
                 // Long silence. Reset
                 data = 0;
