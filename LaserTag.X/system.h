@@ -45,6 +45,7 @@
 
 typedef unsigned char  TMR0_t;
 typedef unsigned short TMR1_t;
+typedef unsigned char  TMR2_t;
 
 #define TMR0_PRELOAD 5 // 255 - 250
 
@@ -74,9 +75,13 @@ typedef unsigned short TMR1_t;
  * TSOP2*56 sensors receive @ 56kHz, so we may want to consider that in the
  * future as well.
  */
-#define PULSE_GAP_WIDTH 300
-#define ZERO_PULSE_WIDTH 250
-#define ONE_PULSE_WIDTH 500
+#define PULSE_GAP_TMR1_WIDTH  300
+#define ZERO_PULSE_TMR1_WIDTH 250
+#define ONE_PULSE_TMR1_WIDTH  500
+
+#define PULSE_GAP_TMR2_WIDTH  150
+#define ZERO_PULSE_TMR2_WIDTH 125
+#define ONE_PULSE_TMR2_WIDTH  250
 
 void configureSystem(void);
 // LSB is the first LED. 1 is on, 0 is off.

@@ -139,16 +139,11 @@ int main(void) {
     ms_count = 0;
     s_count = 0;
 
-    // Start timer1
-    //TMR1 = 0;
-    TMR1IF = 0;
-    TMR1IE = 1;
-
     TMR0 = TMR0_PRELOAD;
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
-    while(1)
+    while(TRUE)
     {
         if (shot_received)
         {
@@ -232,7 +227,7 @@ void interrupt ISR(void)
     {
         HandleTimingInterrupt();
     }
-    else if (CCP1IF && CCP1IE)
+    else if (TMR2IF && TMR2IE)
     {
         HandleShootingInterrupt();
     }
@@ -251,15 +246,10 @@ void setHealthDisplay(unsigned char value)
 void shoot(void)
 {
     shot_data_to_send = (shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
-    TMR1ON = 0;
-    CCPR1 = TMR1;
-    TMR1ON = 1;
-    // Enable CCP1 interrupts and immediately trigger an interrupt, which begins
-    // the shot transmission. Manually setting the interrupt flag may not be the
-    // best practice. Another option is to pull the shooting logic out of the
-    // ISR and put it into another method, and then call that method here.
-    CCP1IF = 1;
-    CCP1IE = 1;
+    
+    TMR2 = 0;
+    TMR2ON = 1;
+    TMR2IF = 1;
     flash();
     //ammo--;
     //setLEDDisplay(shot_data_to_send);
@@ -270,57 +260,6 @@ void flash(void)
     PIN_MUZZLE_FLASH = 0;
     NOP();
     PIN_MUZZLE_FLASH = 1;
-}
-
-TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count)
-{
-    /*
-     * When measuring the length of a pulse using two TMR1 measurements, there
-     * are four cases to consider, covering every possible outcome. Below,
-     * "first" refers to the first measurement, and "second" refers to the
-     * second measurement.
-     *
-     * Case 1: overflow_counter == 2
-     *  time = (TMR1_t)(-1)
-     *  Timer1 has overflowed at least twice during this pulse. This means at
-     *  least one full timer cycle has elapsed (one overflow for the beginning
-     *  of the cycle, one for the end).
-     *
-     * Case 2: overflow_counter == 1 && second >= first
-     *  time = (TMR1_t)(-1)
-     *  Timer1 has overflowed exactly once during this pulse, and the time (in
-     *  terms of timer1 ticks) of the end of the pulse is greater than or equal
-     *  to the time of the start. The pulse started in some timer cycle, and
-     *  ended at the same time or later in the next timer cycle, so more than
-     *  one timer cycle has elapsed.
-     *
-     * Case 3: overflow_counter == 1 && second < first
-     *  time = (TMR1_t)(second - first)
-     *  The pulse started in some timer cycle, and ended at an earlier count in
-     *  the next timer cycle. second - first will be negative, but it will
-     *  underflow when cast and produce the correct value for elapsed ticks (you
-     *  can verify this with a simple number line).
-     *
-     * Case 4: overflow_counter == 0
-     *  time = (TMR1_t)(second - first)
-     *  Timer hasn't overflowed, simple subtraction to get elapsed time. second
-     *  is guaranteed to be greater than or equal to first.
-     */
-
-    TMR1_t pulse_width;
-    if ( (overflow_count == 2) ||
-         (overflow_count == 1 && second >= first) )
-    {
-        // Cases 1 and 2
-        pulse_width = (TMR1_t)(-1);
-    }
-    else
-    {
-        // Cases 3 and 4
-        pulse_width = (TMR1_t)(second - first);
-    }
-
-    return pulse_width;
 }
 
 void HandleTimingInterrupt(void)
@@ -359,13 +298,12 @@ void HandleShootingInterrupt(void)
     if (next_edge_rising)
     {
         PIN_SHOT_LIGHT = HIGH;
-        shot_data_index--;
-        TMR1_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
-            ONE_PULSE_WIDTH : ZERO_PULSE_WIDTH;
-
-        CCPR1 += pulse_width;
-
         next_edge_rising = FALSE;
+        shot_data_index--;
+        
+        TMR2_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
+            ONE_PULSE_TMR2_WIDTH : ZERO_PULSE_TMR2_WIDTH;
+        PR2 = pulse_width;
     }
     else // !next_edge_rising
     {
@@ -374,20 +312,20 @@ void HandleShootingInterrupt(void)
 
         if (shot_data_index == 0)
         {
-            // This is the final falling edge of the shot, reset the data
-            // index and disable CCP1 interrupts
+            // This is the final falling edge of the shot
+            // Turn off the timer
+            TMR2ON = 0;
+            // Reset the data index
             shot_data_index = SHOT_DATA_LENGTH;
-            // Disable CCP1 interrupts
-            CCP1IE = 0;
         }
         else
         {
-            CCPR1 += PULSE_GAP_WIDTH;
+            PR2 = PULSE_GAP_TMR2_WIDTH;
         }
     }
 
     // Reset flag
-    CCP1IF = 0;
+    TMR2IF = 0;
 }
 
 void HandleShotReceptionInterrupt(void)
@@ -439,9 +377,6 @@ void HandleShotReceptionInterrupt(void)
      * still being timed.
      */
 
-    // Counts timer1 overflows, capped at 2
-    static unsigned char overflow_count;
-
     // Data accumulator
     static unsigned int data = 0;
     static unsigned char bit_count = 0;
@@ -449,38 +384,24 @@ void HandleShotReceptionInterrupt(void)
     static bool_t wait_for_silence = FALSE;
     
     static bool_t next_edge_rising = FALSE;
-    static TMR1_t rise_time = 0;
-    static TMR1_t fall_time = 0;
 
-    if (TMR1IF && TMR1IE)
+    if (INTE && INTF)
     {
-        overflow_count++;
-
-        if (overflow_count == 2)
-        {
-            // Once we hit two, turn off interrupts. We don't want to
-            // increment further.
-            TMR1IE = 0;
-        }
-
-        // Reset flag
-        TMR1IF = 0;
-    }
-    else if (CCP3IF && CCP3IE)
-    {
+        // Investigate using the INT pin instead of the CCP module
+        
+        TMR1ON = 0;
+        TMR1_t pulse_width = TMR1;
+        TMR1 = 0;
+        TMR1ON = 1;
+   
         if (next_edge_rising)
         {
-            // Rising edge detected (end of pulse, start of silence)
-            // CCPR2 is the new rise time
-
-            rise_time = CCPR3;
+            // Rising edge detected (end of pulse)
             
             // Only process the pulse if we're not waiting for a long silence to
             // reset.
             if (!wait_for_silence)
             {
-                TMR1_t pulse_width = getPulseWidth(fall_time, rise_time,
-                                                   overflow_count);
                 pulses_received[bit_count] = pulse_width;
 
                 if (pulse_width > 250 && pulse_width < 375)
@@ -526,13 +447,7 @@ void HandleShotReceptionInterrupt(void)
         }
         else // !next_edge_rising
         {
-            // Falling edge detected (start of pulse, end of silence)
-            // CCPR2 is the new fall time
-
-            fall_time = CCPR3;
-
-            TMR1_t pulse_width = getPulseWidth(rise_time, fall_time,
-                                               overflow_count);
+            // Falling edge detected (end of silence)
 #ifdef DEBUG
             gaps_received[bit_count] = pulse_width;
 #endif
@@ -555,35 +470,10 @@ void HandleShotReceptionInterrupt(void)
 
         // Toggle the edge we're looking for. This can cause spurious
         // interrupts, so we disable them during the change.
-        CCP3IE = 0;
+        INTE = 0;
         // 1 to capture rising edges, 0 to capture falling edges
-        CCP3M0 = next_edge_rising;
-        CCP3IF = 0;
-        CCP3IE = 1;
-
-        // Pause timer 1, so that we don't have to worry about it overflowing
-        // between the next several instructions.
-        TMR1ON = 0;
-        /*
-         * We need to reset the overflow count for the next cycle. Timing for
-         * the next cycle is happening asynchronously right now, so if an
-         * overflow has occurred since we started handling this interrupt, we
-         * need to record it for the next cycle.
-         *
-         * We can assume the timer has not gone through a full cycle in this
-         * time because a full cycle even at 8MHz takes 8ms. Given this
-         * assumption, if the current timer value (which is frozen) is less than
-         * the timer value when we started this interrupt handler, the timer has
-         * overflowed exactly once. Otherwise, it hasn't overflowed.
-         */
-        overflow_count = TMR1 < CCPR3 ? 1 : 0;
-        // We handled the possible overflow above, so reset the timer interrupt
-        // to avoid handling the same overflow twice.
-        TMR1IF = 0;
-        // Enable timer 1 interrupts, which may have been disabled because we
-        // were already at two timer overflows.
-        TMR1IE = 1;
-        // Resume timer 1
-        TMR1ON = 1;
+        INTEDG = next_edge_rising;
+        INTF = 0;
+        INTE = 1;
     }
 }
