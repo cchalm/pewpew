@@ -22,6 +22,7 @@ void configureSystem(void)
     //         |+--- PEIE   - Enable peripheral interrupts
     //         ||+-- TMR0IE - Enable Timer0 interrupt
     //         |||+- INTE   - Enable external interrupts
+    //         ||||
     INTCON = 0b01110000;
     
     //             +-------- RBPU    - Disable Port B pull-ups
@@ -129,6 +130,7 @@ void delayTiny(unsigned long d)
 
 void error(unsigned int error_code)
 {
+    GIE = 0;
     while (1)
     {
         setLEDDisplay(error_code);

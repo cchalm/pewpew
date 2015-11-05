@@ -57,7 +57,8 @@ typedef unsigned int count_t;
 
 enum
 {
-    INVALID_SHOT_DATA_RECEIVED = 0b1001
+    INVALID_SHOT_DATA_RECEIVED = 0b1001,
+    TRANSMISSION_OVERLAP = 0b100101
 };
 
 int health;
@@ -72,6 +73,8 @@ volatile count_t ms_count;
 // at which we can shoot again
 count_t shot_enable_ms_count;
 volatile bool_t can_shoot;
+
+volatile bool_t transmitting;
 
 bool_t mag_in;
 bool_t mag_was_out;
@@ -245,7 +248,12 @@ void setHealthDisplay(unsigned char value)
 
 void shoot(void)
 {
+    if (transmitting)
+        error(TRANSMISSION_OVERLAP);
+    
     shot_data_to_send = (shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
+    
+    transmitting = TRUE;
     
     TMR2 = 0;
     TMR2ON = 1;
@@ -317,6 +325,8 @@ void HandleShootingInterrupt(void)
             TMR2ON = 0;
             // Reset the data index
             shot_data_index = SHOT_DATA_LENGTH;
+            // Let the main program know we're done transmitting
+            transmitting = FALSE;
         }
         else
         {
@@ -404,13 +414,13 @@ void HandleShotReceptionInterrupt(void)
             {
                 pulses_received[bit_count] = pulse_width;
 
-                if (pulse_width > 250 && pulse_width < 375)
+                if (pulse_width > 250 && pulse_width < 350)
                 {
                     // Received a 0
                     data <<= 1;
                     bit_count++;
                 }
-                else if (pulse_width > 500 && pulse_width < 625)
+                else if (pulse_width > 400 && pulse_width < 500)
                 {
                     // Received a 1
                     data = (data << 1) | 1;
@@ -453,7 +463,7 @@ void HandleShotReceptionInterrupt(void)
 #endif
             
 #ifndef DEBUG
-            if (pulse_width > 375)
+            if (pulse_width > 300)
 #else
             if (bit_count == SHOT_DATA_LENGTH)
 #endif
