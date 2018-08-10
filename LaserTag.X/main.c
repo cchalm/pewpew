@@ -98,7 +98,7 @@ void setHealthDisplay(unsigned char value);
 void shoot(void);
 void flash(void);
 // Given two TMR1 measurements, with "first" being measured before "second", and
-// the number of overflows that occured between the two measurements, capped at
+// the number of overflows that occurred between the two measurements, capped at
 // two, returns the number of TMR1 ticks that elapsed between the two
 // measurements, capped at the maximum value of TMR1_t.
 TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count);
@@ -107,7 +107,8 @@ void HandleTimingInterrupt(void);
 void HandleShootingInterrupt(void);
 void HandleShotReceptionInterrupt(void);
 
-int main(void) {
+int main(void)
+{
     configureSystem();
 
     LATA = 0b111111;
@@ -134,8 +135,8 @@ int main(void) {
 
     // Set the "was" variables for use on the first loop iteration
     input_state = INPUT_PORT;
-    trigger_was_pressed = (input_state >> TRIGGER_OFFSET) & 1 == TRIGGER_PRESSED;
-    mag_was_out = (input_state >> RELOAD_OFFSET) & 1 == MAG_OUT;
+    trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+    mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
     PIN_SHOT_LIGHT = LOW;
 
@@ -170,8 +171,8 @@ int main(void) {
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
         input_state = INPUT_PORT;
-        trigger_pressed = (input_state >> TRIGGER_OFFSET) & 1 == TRIGGER_PRESSED;
-        mag_in = (input_state >> RELOAD_OFFSET) & 1 == MAG_IN;
+        trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+        mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
 
         if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && can_shoot)
         {
@@ -224,7 +225,7 @@ int main(void) {
 }
 
 // Main Interrupt Service Routine (ISR)
-void interrupt ISR(void)
+void __interrupt () ISR(void)
 {
     if (TMR0IF && TMR0IE)
     {
