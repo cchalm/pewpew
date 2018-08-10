@@ -61,38 +61,38 @@ enum
     TRANSMISSION_OVERLAP = 0b100101
 };
 
-int health;
-int ammo;
+int g_health;
+int g_ammo;
 
 // Counts seconds. Overflows to 0 after ~18 hours (1092.25 minutes)
-volatile count_t s_count;
+volatile count_t g_s_count;
 // Counts milliseconds. Overflows to 0 after ~1 minute (65.535 seconds)
-volatile count_t ms_count;
+volatile count_t g_ms_count;
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
-count_t shot_enable_ms_count;
-volatile bool_t can_shoot;
+count_t g_shot_enable_ms_count;
+volatile bool_t g_can_shoot;
 
-volatile bool_t transmitting;
+volatile bool_t g_transmitting;
 
-bool_t mag_in;
-bool_t mag_was_out;
+bool_t g_mag_in;
+bool_t g_mag_was_out;
 
-bool_t trigger_pressed;
-bool_t trigger_was_pressed;
+bool_t g_trigger_pressed;
+bool_t g_trigger_was_pressed;
 
-unsigned int shot_data_to_send;
+unsigned int g_shot_data_to_send;
 
-volatile unsigned int shot_data_received;
-volatile bool_t shot_received;
+volatile unsigned int g_shot_data_received;
+volatile bool_t g_shot_received;
 
-volatile TMR1_t pulses_received[SHOT_DATA_LENGTH];
+volatile TMR1_t g_pulses_received[SHOT_DATA_LENGTH];
 #ifdef DEBUG
 volatile TMR1_t gaps_received[SHOT_DATA_LENGTH];
 #endif
 
-unsigned char input_state;
+unsigned char g_input_state;
 
 void setHealthDisplay(unsigned char value);
 void shoot(void);
@@ -124,24 +124,24 @@ int main(void)
     setLEDDisplay(0b0000000000);
     delay(400);
 
-    can_shoot = TRUE;
-    shot_enable_ms_count = 0;
+    g_can_shoot = TRUE;
+    g_shot_enable_ms_count = 0;
 
-    shot_data_to_send = 0b0101010101;
+    g_shot_data_to_send = 0b0101010101;
 
-    health = MAX_HEALTH;
-    ammo = MAX_AMMO;
-    setHealthDisplay(ammo);
+    g_health = MAX_HEALTH;
+    g_ammo = MAX_AMMO;
+    setHealthDisplay(g_ammo);
 
     // Set the "was" variables for use on the first loop iteration
-    input_state = INPUT_PORT;
-    trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-    mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+    g_input_state = INPUT_PORT;
+    g_trigger_was_pressed = ((g_input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+    g_mag_was_out = ((g_input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
     PIN_SHOT_LIGHT = LOW;
 
-    ms_count = 0;
-    s_count = 0;
+    g_ms_count = 0;
+    g_s_count = 0;
 
     TMR0 = TMR0_PRELOAD;
     // Enable interrupts (go, go, go!)
@@ -149,10 +149,10 @@ int main(void)
 
     while(TRUE)
     {
-        if (shot_received)
+        if (g_shot_received)
         {
             // Make a copy so it doesn't get overwritten
-            unsigned int player_id = shot_data_received;
+            unsigned int player_id = g_shot_data_received;
             setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
@@ -161,26 +161,26 @@ int main(void)
 
             // Look up player ID
 #ifndef DEBUG
-            if (player_id != shot_data_to_send)
+            if (player_id != g_shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
 
-            shot_received = FALSE;
+            g_shot_received = FALSE;
         }
 
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
-        input_state = INPUT_PORT;
-        trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-        mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
+        g_input_state = INPUT_PORT;
+        g_trigger_pressed = ((g_input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+        g_mag_in = ((g_input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
 
-        if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && can_shoot)
+        if (g_trigger_pressed && (FULL_AUTO || !g_trigger_was_pressed) && g_can_shoot)
         {
             // The trigger is pressed, it wasn't pressed before, and the shot
             // timer has elapsed; try to shoot
 
             // Make sure we have ammo and the magazine is in
-            if (mag_in && ammo)
+            if (g_mag_in && g_ammo)
             {
                 shoot();
             }
@@ -192,35 +192,35 @@ int main(void)
 
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
-            shot_enable_ms_count = ms_count + SHOT_DELAY;
-            can_shoot = FALSE;
+            g_shot_enable_ms_count = g_ms_count + SHOT_DELAY;
+            g_can_shoot = FALSE;
         }
         else if (!FULL_AUTO)
         {
             // When in semi-auto mode, only enable shot a short time after
             // releasing the trigger. This is to prevent button bounces from
             // causing shots when releasing the trigger
-            if (trigger_was_pressed && (shot_enable_ms_count - ms_count < BOUNCE_DELAY))
+            if (g_trigger_was_pressed && (g_shot_enable_ms_count - g_ms_count < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
-                can_shoot = FALSE;
-                shot_enable_ms_count = ms_count + BOUNCE_DELAY;
+                g_can_shoot = FALSE;
+                g_shot_enable_ms_count = g_ms_count + BOUNCE_DELAY;
             }
         }
 
-        if (!mag_in)
+        if (!g_mag_in)
             //setHealthDisplay(0);
 
-        if (mag_in && mag_was_out)
+        if (g_mag_in && g_mag_was_out)
         {
             // Mag has been put back in, reload
-            ammo = MAX_AMMO;
+            g_ammo = MAX_AMMO;
             //setHealthDisplay(ammo);
         }
 
         // Update "was" variables
-        trigger_was_pressed = trigger_pressed;
-        mag_was_out = !mag_in;
+        g_trigger_was_pressed = g_trigger_pressed;
+        g_mag_was_out = !g_mag_in;
     }
 }
 
@@ -249,12 +249,12 @@ void setHealthDisplay(unsigned char value)
 
 void shoot(void)
 {
-    if (transmitting)
+    if (g_transmitting)
         error(TRANSMISSION_OVERLAP);
     
-    shot_data_to_send = (shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
     
-    transmitting = TRUE;
+    g_transmitting = TRUE;
     
     TMR2 = 0;
     TMR2ON = 1;
@@ -277,17 +277,17 @@ void HandleTimingInterrupt(void)
 
     static count_t next_s = 1000;
 
-    ms_count++;
+    g_ms_count++;
 
-    if (ms_count == next_s)
+    if (g_ms_count == next_s)
     {
-        s_count++;
-        next_s = ms_count + 1000;
+        g_s_count++;
+        next_s = g_ms_count + 1000;
     }
 
-    if (ms_count == shot_enable_ms_count)
+    if (g_ms_count == g_shot_enable_ms_count)
     {
-        can_shoot = TRUE;
+        g_can_shoot = TRUE;
     }
 
     // Preload timer
@@ -310,7 +310,7 @@ void HandleShootingInterrupt(void)
         next_edge_rising = FALSE;
         shot_data_index--;
         
-        TMR2_t pulse_width = ((shot_data_to_send >> shot_data_index) & 1) ?
+        TMR2_t pulse_width = ((g_shot_data_to_send >> shot_data_index) & 1) ?
             ONE_PULSE_TMR2_WIDTH : ZERO_PULSE_TMR2_WIDTH;
         PR2 = pulse_width;
     }
@@ -327,7 +327,7 @@ void HandleShootingInterrupt(void)
             // Reset the data index
             shot_data_index = SHOT_DATA_LENGTH;
             // Let the main program know we're done transmitting
-            transmitting = FALSE;
+            g_transmitting = FALSE;
         }
         else
         {
@@ -413,7 +413,7 @@ void HandleShotReceptionInterrupt(void)
             // reset.
             if (!wait_for_silence)
             {
-                pulses_received[bit_count] = pulse_width;
+                g_pulses_received[bit_count] = pulse_width;
 
                 if (pulse_width > 250 && pulse_width < 350)
                 {
@@ -442,8 +442,8 @@ void HandleShotReceptionInterrupt(void)
 
                 if (bit_count == SHOT_DATA_LENGTH)
                 {
-                    shot_received = TRUE;
-                    shot_data_received = data;
+                    g_shot_received = TRUE;
+                    g_shot_data_received = data;
 
                     // We could just reset the data accumulator here and let
                     // more shot data come through immediately, on the off
