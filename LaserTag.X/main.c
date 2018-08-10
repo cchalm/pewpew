@@ -61,9 +61,6 @@ enum
     TRANSMISSION_OVERLAP = 0b100101
 };
 
-int g_health;
-int g_ammo;
-
 // Counts seconds. Overflows to 0 after ~18 hours (1092.25 minutes)
 volatile count_t g_s_count;
 // Counts milliseconds. Overflows to 0 after ~1 minute (65.535 seconds)
@@ -75,12 +72,6 @@ count_t g_shot_enable_ms_count;
 volatile bool_t g_can_shoot;
 
 volatile bool_t g_transmitting;
-
-bool_t g_mag_in;
-bool_t g_mag_was_out;
-
-bool_t g_trigger_pressed;
-bool_t g_trigger_was_pressed;
 
 unsigned int g_shot_data_to_send;
 
@@ -107,6 +98,8 @@ void HandleTimingInterrupt(void);
 void HandleShootingInterrupt(void);
 void HandleShotReceptionInterrupt(void);
 
+void handleShotReceived(unsigned int shot_data_received);
+
 int main(void)
 {
     configureSystem();
@@ -129,14 +122,14 @@ int main(void)
 
     g_shot_data_to_send = 0b0101010101;
 
-    g_health = MAX_HEALTH;
-    g_ammo = MAX_AMMO;
-    setHealthDisplay(g_ammo);
+    int health = MAX_HEALTH;
+    int ammo = MAX_AMMO;
+    setHealthDisplay(ammo);
 
     // Set the "was" variables for use on the first loop iteration
-    g_input_state = INPUT_PORT;
-    g_trigger_was_pressed = ((g_input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-    g_mag_was_out = ((g_input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+    unsigned int input_state = INPUT_PORT;
+    bool_t trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+    bool_t mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
     PIN_SHOT_LIGHT = LOW;
 
@@ -152,7 +145,7 @@ int main(void)
         if (g_shot_received)
         {
             // Make a copy so it doesn't get overwritten
-            unsigned int player_id = g_shot_data_received;
+            unsigned int player_id = shot_data_received;
             setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
@@ -161,7 +154,7 @@ int main(void)
 
             // Look up player ID
 #ifndef DEBUG
-            if (player_id != g_shot_data_to_send)
+            if (player_id != shot_data_received)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
 
@@ -170,17 +163,17 @@ int main(void)
 
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
-        g_input_state = INPUT_PORT;
-        g_trigger_pressed = ((g_input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-        g_mag_in = ((g_input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
+        input_state = INPUT_PORT;
+        bool_t trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+        bool_t mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
 
-        if (g_trigger_pressed && (FULL_AUTO || !g_trigger_was_pressed) && g_can_shoot)
+        if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && g_can_shoot)
         {
             // The trigger is pressed, it wasn't pressed before, and the shot
             // timer has elapsed; try to shoot
 
             // Make sure we have ammo and the magazine is in
-            if (g_mag_in && g_ammo)
+            if (mag_in && ammo)
             {
                 shoot();
             }
@@ -200,7 +193,7 @@ int main(void)
             // When in semi-auto mode, only enable shot a short time after
             // releasing the trigger. This is to prevent button bounces from
             // causing shots when releasing the trigger
-            if (g_trigger_was_pressed && (g_shot_enable_ms_count - g_ms_count < BOUNCE_DELAY))
+            if (trigger_was_pressed && (g_shot_enable_ms_count - g_ms_count < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
                 g_can_shoot = FALSE;
@@ -208,19 +201,19 @@ int main(void)
             }
         }
 
-        if (!g_mag_in)
+        if (!mag_in)
             //setHealthDisplay(0);
 
-        if (g_mag_in && g_mag_was_out)
+        if (mag_in && mag_was_out)
         {
             // Mag has been put back in, reload
-            g_ammo = MAX_AMMO;
+            ammo = MAX_AMMO;
             //setHealthDisplay(ammo);
         }
 
         // Update "was" variables
-        g_trigger_was_pressed = g_trigger_pressed;
-        g_mag_was_out = !g_mag_in;
+        trigger_was_pressed = trigger_pressed;
+        mag_was_out = !mag_in;
     }
 }
 
