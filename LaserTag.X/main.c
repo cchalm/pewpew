@@ -83,8 +83,6 @@ volatile TMR1_t g_pulses_received[SHOT_DATA_LENGTH];
 volatile TMR1_t gaps_received[SHOT_DATA_LENGTH];
 #endif
 
-unsigned char g_input_state;
-
 void setHealthDisplay(unsigned char value);
 void shoot(void);
 void flash(void);
@@ -145,7 +143,7 @@ int main(void)
         if (g_shot_received)
         {
             // Make a copy so it doesn't get overwritten
-            unsigned int player_id = shot_data_received;
+            unsigned int player_id = g_shot_data_received;
             setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
@@ -154,7 +152,7 @@ int main(void)
 
             // Look up player ID
 #ifndef DEBUG
-            if (player_id != shot_data_received)
+            if (player_id != g_shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
 
