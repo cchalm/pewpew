@@ -249,6 +249,7 @@ void shoot(void)
     
     TMR2 = 0;
     TMR2ON = 1;
+    // Force the interrupt handler to run to start the shot process
     TMR2IF = 1;
     flash();
     //ammo--;
@@ -340,43 +341,23 @@ void HandleShotReceptionInterrupt(void)
      * A shot transmission contains some number of bits. A long pulse is a 1,
      * and a short pulse is a 0, and these pulses are separated by a
      * known-length silence.
-     *
-     * CCP modules can "capture" pin events like rising and falling edges. When
-     * the event occurs, the Timer1 register gets copied into the CCP register
-     * by the hardware. By examining the CCP register in software, we can know
-     * when that event occurred.
      * 
-     * We're using CCP2 to time both rising and falling edges on the IR sensor
-     * data wire. The module can only be set up to capture one edge or the
-     * other, so each time we capture an edge we reconfigure the module to look
-     * for the opposite edge.
+     * The current implementation uses the INT pin, a pin that can be set up to
+     * trigger interrupts on rising or falling edges. The interrupt handler
+     * reverses the edge on each call, allowing us to handle both rising and
+     * falling edges.
      * 
-     * OLD TEXT. The text below does not describe the current operation of this
-     * method.
+     * When we see any edge, we save the value of timer 1 and reset it to 0.
+     * Because we always reset it to 0, the value of the timer is the elapsed
+     * time since the last edge. We time both pulses and gaps this way.
      *
-     * We have CCP2 set up to capture rising edges and CCP3 set up to capture
-     * falling edges. A rising edge represents the END of a pulse and the START
-     * of silence because TSOP2240 sensors are active low. To keep it simple,
-     * we'll say CCP3 captures the START of a pulse, and CCP2 captures the END
-     * of a pulse. We've also configured the modules to trigger interrupts when
-     * captures occur.
-     *
-     * When we get a CCP2 interrupt, we know a pulse has just ended. The CCP2
-     * register contains the time (the Timer1 count) that the pulse ended, and,
-     * critically, the CCP3 register contains the time that the pulse started.
-     * Subtract the end time from the start time and that's the pulse length.
-     * The comments in the getPulseWidth method describe in detail how we
-     * account for Timer1 overflows.
-     *
-     * If the pulse is an expected length, we handle the bit and continue. If it
+     * If a pulse is an expected length, we handle the bit and continue. If it
      * is an unexpected length, we disable end-of-pulse interrupts. We handle
      * data when we see the ends of pulses, so disabling those interrupts stops
      * data reception. We also stop accepting data after receiving the expected
      * number of bits from a transmission.
      *
-     * Data reception resets upon observing a long silence. Disabling
-     * end-of-pulse interrupts does NOT disable capture events, so pulses are
-     * still being timed.
+     * Data reception resets upon observing a long silence.
      */
 
     // Data accumulator
