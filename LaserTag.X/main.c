@@ -80,7 +80,7 @@ volatile bool_t g_shot_received;
 
 volatile TMR1_t g_pulses_received[SHOT_DATA_LENGTH];
 #ifdef DEBUG
-volatile TMR1_t gaps_received[SHOT_DATA_LENGTH];
+volatile TMR1_t g_gaps_received[SHOT_DATA_LENGTH];
 #endif
 
 void setHealthDisplay(unsigned char value);
@@ -451,7 +451,7 @@ void HandleShotReceptionInterrupt(void)
         {
             // Falling edge detected (end of silence)
 #ifdef DEBUG
-            gaps_received[bit_count] = pulse_width;
+            g_gaps_received[bit_count] = pulse_width;
 #endif
             
 #ifndef DEBUG
