@@ -96,6 +96,24 @@ void handleSignalReceptionInterrupt()
             {
                 g_pulses_received[bit_count] = pulse_width;
 
+                // Based on the TSOP2440 spec, we may want to measure pulse
+                // periods instead of high/low times. At low and high
+                // irradiances, high/low times become irregular, but the period
+                // remains consistent
+
+                // The application (laser tag) means we may well receive
+                // low-irradiance signals at times, e.g. at near-maximum optical
+                // range, or a near-miss shot
+
+                // Of particular concern is that around 0.1 mW/m^2 the high
+                // time drops by over 100us, which could cause a one to be
+                // interpreted as a zero
+
+                // We could measure period in addition to duty cycle, which
+                // might provide a way for a tagger to detect a near-hit. E.g.
+                // if the duty cycle is low, irradiance was low, indicating an
+                // off-target or distant shot
+
                 if (pulse_width > 250 && pulse_width < 350)
                 {
                     // Received a 0
@@ -114,10 +132,10 @@ void handleSignalReceptionInterrupt()
                     // going to stop reading in data and wait until we see a
                     // long period of silence
 
-#ifndef DEBUG
-                    wait_for_silence = true;
-#else
+#ifdef DEBUG
                     bit_count++;
+#else
+                    wait_for_silence = true;
 #endif
                 }
 
@@ -144,10 +162,10 @@ void handleSignalReceptionInterrupt()
             g_gaps_received[bit_count] = pulse_width;
 #endif
             
-#ifndef DEBUG
-            if (pulse_width > 300)
-#else
+#ifdef DEBUG
             if (bit_count == SHOT_DATA_LENGTH)
+#else
+            if (pulse_width > 300)
 #endif
             {
                 // Long silence. Reset
