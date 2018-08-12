@@ -31,6 +31,7 @@
 #pragma config LPBOR = OFF      // Low Power Brown-Out Reset Enable Bit (Low power brown-out is disabled)
 #pragma config LVP = OFF        // Low-Voltage Programming Enable (High-voltage on MCLR/VPP must be used for programming)
 
+#include "LEDDisplay.h"
 #include "system.h"
 
 #include <stdbool.h>

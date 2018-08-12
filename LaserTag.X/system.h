@@ -13,21 +13,9 @@
 #define HIGH 1
 #define LOW 0
 
-#define PIN_LED0 RD2
-#define PIN_LED1 RD3
-#define PIN_LED2 RC4
-#define PIN_LED3 RC5
-#define PIN_LED4 RC6
-#define PIN_LED5 RC7
-#define PIN_LED6 RD4
-#define PIN_LED7 RD5
-#define PIN_LED8 RD6
-#define PIN_LED9 RD7
 #define PIN_MUZZLE_FLASH RB4
 #define PIN_SHOT_LIGHT P1MDLBIT
 #define PIN_HIT_LIGHT RB5
-#define LED_ON LOW
-#define LED_OFF HIGH
 
 #define INPUT_PORT PORTD;
 
@@ -102,8 +90,6 @@ typedef unsigned char  TMR2_t;
 #define ONE_PULSE_TMR2_WIDTH  190 // (400us - 20us) * (1 cycle / 2us) = 190 cycles
 
 void configureSystem(void);
-// LSB is the first LED. 1 is on, 0 is off.
-void setLEDDisplay(unsigned int bits);
 void delay(unsigned long d);
 void delayTiny(unsigned long d);
 void error(unsigned int error_code);

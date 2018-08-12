@@ -5,8 +5,11 @@
  * Created on January 6, 2015, 9:31 PM
  */
 
-#include <xc.h>
 #include "system.h"
+
+#include "LEDDisplay.h"
+
+#include <xc.h>
 
 void configurePSMC(void);
 void configureTimer1(void);
@@ -97,13 +100,6 @@ void configureTimer2(void)
     //         |--||||
     T2CON = 0b00000010;
     TMR2IE = 1;
-}
-
-void setLEDDisplay(unsigned int bits)
-{
-    bits = ~bits;
-    LATD = (LATD & 0b00000011) | ((bits & 0b0000000011) << 2) | ((bits & 0b1111000000) >> 2);
-    LATC = (LATC & 0b00001111) | ((bits & 0b0000111100) << 2);
 }
 
 void _delay_gen(unsigned long d, volatile unsigned int multiplier)
