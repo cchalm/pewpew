@@ -33,11 +33,9 @@
 
 #include "system.h"
 
-typedef unsigned char bool_t;
-typedef unsigned int count_t;
+#include <stdbool.h>
 
-#define TRUE 1
-#define FALSE 0
+typedef unsigned int count_t;
 
 #define MAX_HEALTH 10
 #define MAX_AMMO 10
@@ -46,7 +44,7 @@ typedef unsigned int count_t;
 #define FIRE_RATE 10
 // Delay between shots in ms
 #define SHOT_DELAY 1000/(FIRE_RATE)
-#define FULL_AUTO TRUE
+#define FULL_AUTO true
 #define SHOT_DATA_LENGTH 10
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
@@ -69,14 +67,14 @@ volatile count_t g_ms_count;
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
 count_t g_shot_enable_ms_count;
-volatile bool_t g_can_shoot;
+volatile bool g_can_shoot;
 
-volatile bool_t g_transmitting;
+volatile bool g_transmitting;
 
 unsigned int g_shot_data_to_send;
 
 volatile unsigned int g_shot_data_received;
-volatile bool_t g_shot_received;
+volatile bool g_shot_received;
 
 volatile TMR1_t g_pulses_received[SHOT_DATA_LENGTH];
 #ifdef DEBUG
@@ -115,7 +113,7 @@ int main(void)
     setLEDDisplay(0b0000000000);
     delay(400);
 
-    g_can_shoot = TRUE;
+    g_can_shoot = true;
     g_shot_enable_ms_count = 0;
 
     g_shot_data_to_send = 0b0101010101;
@@ -126,8 +124,8 @@ int main(void)
 
     // Set the "was" variables for use on the first loop iteration
     unsigned int input_state = INPUT_PORT;
-    bool_t trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-    bool_t mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+    bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+    bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
     PIN_SHOT_LIGHT = LOW;
 
@@ -138,7 +136,7 @@ int main(void)
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
-    while(TRUE)
+    while(true)
     {
         if (g_shot_received)
         {
@@ -156,14 +154,14 @@ int main(void)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
 
-            g_shot_received = FALSE;
+            g_shot_received = false;
         }
 
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
         input_state = INPUT_PORT;
-        bool_t trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-        bool_t mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
+        bool trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
+        bool mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
 
         if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && g_can_shoot)
         {
@@ -184,7 +182,7 @@ int main(void)
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
             g_shot_enable_ms_count = g_ms_count + SHOT_DELAY;
-            g_can_shoot = FALSE;
+            g_can_shoot = false;
         }
         else if (!FULL_AUTO)
         {
@@ -194,7 +192,7 @@ int main(void)
             if (trigger_was_pressed && (g_shot_enable_ms_count - g_ms_count < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
-                g_can_shoot = FALSE;
+                g_can_shoot = false;
                 g_shot_enable_ms_count = g_ms_count + BOUNCE_DELAY;
             }
         }
@@ -245,7 +243,7 @@ void shoot(void)
     
     g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
     
-    g_transmitting = TRUE;
+    g_transmitting = true;
     
     TMR2 = 0;
     TMR2ON = 1;
@@ -279,7 +277,7 @@ void HandleTimingInterrupt(void)
 
     if (g_ms_count == g_shot_enable_ms_count)
     {
-        g_can_shoot = TRUE;
+        g_can_shoot = true;
     }
 
     // Preload timer
@@ -294,12 +292,12 @@ void HandleShootingInterrupt(void)
 
     // Send MSB first
     static unsigned char shot_data_index = SHOT_DATA_LENGTH;
-    static bool_t next_edge_rising = TRUE;
+    static bool next_edge_rising = true;
 
     if (next_edge_rising)
     {
         PIN_SHOT_LIGHT = HIGH;
-        next_edge_rising = FALSE;
+        next_edge_rising = false;
         shot_data_index--;
         
         TMR2_t pulse_width = ((g_shot_data_to_send >> shot_data_index) & 1) ?
@@ -309,7 +307,7 @@ void HandleShootingInterrupt(void)
     else // !next_edge_rising
     {
         PIN_SHOT_LIGHT = LOW;
-        next_edge_rising = TRUE;
+        next_edge_rising = true;
 
         if (shot_data_index == 0)
         {
@@ -319,7 +317,7 @@ void HandleShootingInterrupt(void)
             // Reset the data index
             shot_data_index = SHOT_DATA_LENGTH;
             // Let the main program know we're done transmitting
-            g_transmitting = FALSE;
+            g_transmitting = false;
         }
         else
         {
@@ -364,9 +362,9 @@ void HandleShotReceptionInterrupt(void)
     static unsigned int data = 0;
     static unsigned char bit_count = 0;
 
-    static bool_t wait_for_silence = FALSE;
+    static bool wait_for_silence = false;
     
-    static bool_t next_edge_rising = FALSE;
+    static bool next_edge_rising = false;
 
     if (INTE && INTF)
     {
@@ -406,7 +404,7 @@ void HandleShotReceptionInterrupt(void)
                     // long period of silence
 
 #ifndef DEBUG
-                    wait_for_silence = TRUE;
+                    wait_for_silence = true;
 #else
                     bit_count++;
 #endif
@@ -414,7 +412,7 @@ void HandleShotReceptionInterrupt(void)
 
                 if (bit_count == SHOT_DATA_LENGTH)
                 {
-                    g_shot_received = TRUE;
+                    g_shot_received = true;
                     g_shot_data_received = data;
 
                     // We could just reset the data accumulator here and let
@@ -424,7 +422,7 @@ void HandleShotReceptionInterrupt(void)
                     // instead we're just going to wait for silence. This is
                     // more robust and has a negligible impact on shot
                     // throughput.
-                    wait_for_silence = TRUE;
+                    wait_for_silence = true;
                 }
             }
         }
@@ -445,7 +443,7 @@ void HandleShotReceptionInterrupt(void)
                 data = 0;
                 bit_count = 0;
 
-                wait_for_silence = FALSE;
+                wait_for_silence = false;
             }
         }
         
