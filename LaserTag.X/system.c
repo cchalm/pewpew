@@ -8,12 +8,11 @@
 #include "system.h"
 
 #include "LEDDisplay.h"
+#include "IRTransmitter.h"
 
 #include <xc.h>
 
-void configurePSMC(void);
 void configureTimer1(void);
-void configureTimer2(void);
 
 void configureSystem(void)
 {
@@ -36,9 +35,8 @@ void configureSystem(void)
     //             ||| ||-|
     OPTION_REG = 0b10000100;
 
-    configurePSMC();
     configureTimer1();
-    configureTimer2();
+    initializeTransmitter();
 
     // Disable analog inputs. This fixes a read-modify-write issue with setting
     // individual output pins.
@@ -53,34 +51,8 @@ void configureSystem(void)
     TRISD = 0b00000011;
     // Set C0 to output
     TRISC = 0b0;
-}
 
-void configurePSMC(void)
-{
-    // Set up PSMC1 for modulated fixed duty cycle PWM
-    // Disable the PSMC module before configuring it
-    PSMC1CON = 0;
-    //           +-------- P1MDLEN     - Enable modulation
-    //           |     +-- P1MSRC[3:0] - Select P1MDLBIT as the modulation source
-    //           |   |--|
-    PSMC1MDL = 0b10000000;
-    //              +----- P1CPRE[1:0] - Set clock prescaler to 1:1
-    //              |   +- P1CSRC[1:0] - Select PSMC1 clock source: 64MHz internal
-    //             ||  ||
-    PSMC1CLK = 0b00000001;
-    //                  +- P1PRST - Set period event to occur when PSMC1TMR == PSMC1PR
-    //                  |
-    PSMC1PRS = 0b00000001;
-    // Set period register to 799. F = (64MHz / (PSMC1PR + 1)) / 2 = 40KHz
-    PSMC1PR = 0b0000001100011111;
-    //                  +- P1OEA - Enable PWM on PSMC1A
-    //                  |
-    PSMC1OEN = 0b00000001;
-
-    //           +-------- PSMC1EN     - Enable PSMC1
-    //           |     +-- P1MODE[3:0] - Select fixed duty cycle, variable frequency, single PWM
-    //           |   |--|
-    PSMC1CON = 0b10001010;
+    initializeLEDDisplay();
 }
 
 void configureTimer1(void)
@@ -90,16 +62,6 @@ void configureTimer1(void)
     //         | |   +- TMR1ON - Enable Timer1
     //        ||||   |
     T1CON = 0b00110001;
-}
-
-void configureTimer2(void)
-{
-    //           +------ T2OUTPS[3:0] - Set output postscaler 1:1
-    //           | +---- TMR2ON       - Turn TMR2 off for now, we'll turn it on when we shoot
-    //           | | +-- T2CKPS[1:0]  - Set prescaler 1:16
-    //         |--||||
-    T2CON = 0b00000010;
-    TMR2IE = 1;
 }
 
 void _delay_gen(unsigned long d, volatile unsigned int multiplier)

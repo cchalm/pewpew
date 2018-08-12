@@ -31,8 +31,10 @@
 #pragma config LPBOR = OFF      // Low Power Brown-Out Reset Enable Bit (Low power brown-out is disabled)
 #pragma config LVP = OFF        // Low-Voltage Programming Enable (High-voltage on MCLR/VPP must be used for programming)
 
+#include "IRTransmitter.h"
 #include "LEDDisplay.h"
 #include "system.h"
+#include "transmissionConstants.h"
 
 #include <stdbool.h>
 
@@ -46,7 +48,6 @@ typedef unsigned int count_t;
 // Delay between shots in ms
 #define SHOT_DELAY 1000/(FIRE_RATE)
 #define FULL_AUTO true
-#define SHOT_DATA_LENGTH 10
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
 // be registered. This is to mitigate button bounce.
@@ -70,16 +71,16 @@ volatile count_t g_ms_count;
 count_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
-volatile bool g_transmitting;
-
 unsigned int g_shot_data_to_send;
 
 volatile unsigned int g_shot_data_received;
 volatile bool g_shot_received;
 
-volatile TMR1_t g_pulses_received[SHOT_DATA_LENGTH];
+#define TRANSMISSION_DATA_LENGTH 10
+
+volatile TMR1_t g_pulses_received[TRANSMISSION_DATA_LENGTH];
 #ifdef DEBUG
-volatile TMR1_t g_gaps_received[SHOT_DATA_LENGTH];
+volatile TMR1_t g_gaps_received[TRANSMISSION_DATA_LENGTH];
 #endif
 
 void setHealthDisplay(unsigned char value);
@@ -91,9 +92,8 @@ void flash(void);
 // measurements, capped at the maximum value of TMR1_t.
 TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count);
 
-void HandleTimingInterrupt(void);
-void HandleShootingInterrupt(void);
-void HandleShotReceptionInterrupt(void);
+void handleTimingInterrupt(void);
+void handleShotReceptionInterrupt(void);
 
 void handleShotReceived(unsigned int shot_data_received);
 
@@ -127,8 +127,6 @@ int main(void)
     unsigned int input_state = INPUT_PORT;
     bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
     bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
-
-    PIN_SHOT_LIGHT = LOW;
 
     g_ms_count = 0;
     g_s_count = 0;
@@ -217,18 +215,9 @@ int main(void)
 // Main Interrupt Service Routine (ISR)
 void __interrupt () ISR(void)
 {
-    if (TMR0IF && TMR0IE)
-    {
-        HandleTimingInterrupt();
-    }
-    else if (TMR2IF && TMR2IE)
-    {
-        HandleShootingInterrupt();
-    }
-    else
-    {
-        HandleShotReceptionInterrupt();
-    }
+    handleTimingInterrupt();
+    handleTransmissionTimingInterrupt();
+    handleShotReceptionInterrupt();
 }
 
 void setHealthDisplay(unsigned char value)
@@ -239,17 +228,13 @@ void setHealthDisplay(unsigned char value)
 
 void shoot(void)
 {
-    if (g_transmitting)
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) |
+            ((TMR0 % 2) << (TRANSMISSION_DATA_LENGTH - 1));
+
+    bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
+    if (transmissionInProgress)
         error(TRANSMISSION_OVERLAP);
     
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR0 % 2) << (SHOT_DATA_LENGTH - 1));
-    
-    g_transmitting = true;
-    
-    TMR2 = 0;
-    TMR2ON = 1;
-    // Force the interrupt handler to run to start the shot process
-    TMR2IF = 1;
     flash();
     //ammo--;
     //setLEDDisplay(shot_data_to_send);
@@ -262,9 +247,12 @@ void flash(void)
     PIN_MUZZLE_FLASH = 1;
 }
 
-void HandleTimingInterrupt(void)
+void handleTimingInterrupt(void)
 {
     // Real-time timer logic
+
+    if (!(TMR0IF && TMR0IE))
+        return;
 
     static count_t next_s = 1000;
 
@@ -287,50 +275,7 @@ void HandleTimingInterrupt(void)
     TMR0IF = 0;
 }
 
-void HandleShootingInterrupt(void)
-{
-    // Shooting logic
-
-    // Send MSB first
-    static unsigned char shot_data_index = SHOT_DATA_LENGTH;
-    static bool next_edge_rising = true;
-
-    if (next_edge_rising)
-    {
-        PIN_SHOT_LIGHT = HIGH;
-        next_edge_rising = false;
-        shot_data_index--;
-        
-        TMR2_t pulse_width = ((g_shot_data_to_send >> shot_data_index) & 1) ?
-            ONE_PULSE_TMR2_WIDTH : ZERO_PULSE_TMR2_WIDTH;
-        PR2 = pulse_width;
-    }
-    else // !next_edge_rising
-    {
-        PIN_SHOT_LIGHT = LOW;
-        next_edge_rising = true;
-
-        if (shot_data_index == 0)
-        {
-            // This is the final falling edge of the shot
-            // Turn off the timer
-            TMR2ON = 0;
-            // Reset the data index
-            shot_data_index = SHOT_DATA_LENGTH;
-            // Let the main program know we're done transmitting
-            g_transmitting = false;
-        }
-        else
-        {
-            PR2 = PULSE_GAP_TMR2_WIDTH;
-        }
-    }
-
-    // Reset flag
-    TMR2IF = 0;
-}
-
-void HandleShotReceptionInterrupt(void)
+void handleShotReceptionInterrupt(void)
 {
     // Shot reception logic
 
@@ -411,7 +356,7 @@ void HandleShotReceptionInterrupt(void)
 #endif
                 }
 
-                if (bit_count == SHOT_DATA_LENGTH)
+                if (bit_count == TRANSMISSION_DATA_LENGTH)
                 {
                     g_shot_received = true;
                     g_shot_data_received = data;

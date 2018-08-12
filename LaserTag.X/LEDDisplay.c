@@ -1,5 +1,5 @@
 /*
- * File:   system.c
+ * File:   LEDDisplay.c
  * Author: Chris
  *
  * Created on August 11, 2018, 9:45 PM
@@ -40,7 +40,7 @@ void setLEDDisplay(unsigned int bits)
     // Bit-to-pin mapping:
     // MSB                                 LSB
     // 9   8   7   6   5   4   3   2   1   0
-    // D7  D6  D5  D4  C7  C6  C5  C4  D3  D2]
+    // D7  D6  D5  D4  C7  C6  C5  C4  D3  D2
 
     // LEDs are active-low, so invert the given bits
     bits = ~bits;
