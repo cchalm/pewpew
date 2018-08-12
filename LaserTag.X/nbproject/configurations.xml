@@ -8,6 +8,7 @@
       <itemPath>LEDDisplay.h</itemPath>
       <itemPath>transmissionConstants.h</itemPath>
       <itemPath>IRTransmitter.h</itemPath>
+      <itemPath>IRReceiver.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -20,6 +21,7 @@
       <itemPath>system.c</itemPath>
       <itemPath>LEDDisplay.c</itemPath>
       <itemPath>IRTransmitter.c</itemPath>
+      <itemPath>IRReceiver.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

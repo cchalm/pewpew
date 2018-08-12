@@ -31,6 +31,7 @@
 #pragma config LPBOR = OFF      // Low Power Brown-Out Reset Enable Bit (Low power brown-out is disabled)
 #pragma config LVP = OFF        // Low-Voltage Programming Enable (High-voltage on MCLR/VPP must be used for programming)
 
+#include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "LEDDisplay.h"
 #include "system.h"
@@ -73,24 +74,11 @@ volatile bool g_can_shoot;
 
 unsigned int g_shot_data_to_send;
 
-volatile unsigned int g_shot_data_received;
-volatile bool g_shot_received;
-
 #define TRANSMISSION_DATA_LENGTH 10
-
-volatile TMR1_t g_pulses_received[TRANSMISSION_DATA_LENGTH];
-#ifdef DEBUG
-volatile TMR1_t g_gaps_received[TRANSMISSION_DATA_LENGTH];
-#endif
 
 void setHealthDisplay(unsigned char value);
 void shoot(void);
 void flash(void);
-// Given two TMR1 measurements, with "first" being measured before "second", and
-// the number of overflows that occurred between the two measurements, capped at
-// two, returns the number of TMR1 ticks that elapsed between the two
-// measurements, capped at the maximum value of TMR1_t.
-TMR1_t getPulseWidth(TMR1_t first, TMR1_t second, count_t overflow_count);
 
 void handleTimingInterrupt(void);
 void handleShotReceptionInterrupt(void);
@@ -137,10 +125,10 @@ int main(void)
 
     while(true)
     {
-        if (g_shot_received)
+        if (transmissionReceived())
         {
             // Make a copy so it doesn't get overwritten
-            unsigned int player_id = g_shot_data_received;
+            unsigned int player_id = getTransmissionData();
             setLEDDisplay(player_id);
 
             PIN_HIT_LIGHT = 0;
@@ -152,8 +140,6 @@ int main(void)
             if (player_id != g_shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
-
-            g_shot_received = false;
         }
 
         // Snapshot input state. This way, we don't have to worry about the
@@ -217,7 +203,7 @@ void __interrupt () ISR(void)
 {
     handleTimingInterrupt();
     handleTransmissionTimingInterrupt();
-    handleShotReceptionInterrupt();
+    handleSignalReceptionInterrupt();
 }
 
 void setHealthDisplay(unsigned char value)
@@ -273,134 +259,4 @@ void handleTimingInterrupt(void)
     TMR0 = TMR0_PRELOAD;
     // Reset flag
     TMR0IF = 0;
-}
-
-void handleShotReceptionInterrupt(void)
-{
-    // Shot reception logic
-
-    /*
-     * HOW IT WORKS
-     *
-     * A shot transmission contains some number of bits. A long pulse is a 1,
-     * and a short pulse is a 0, and these pulses are separated by a
-     * known-length silence.
-     * 
-     * The current implementation uses the INT pin, a pin that can be set up to
-     * trigger interrupts on rising or falling edges. The interrupt handler
-     * reverses the edge on each call, allowing us to handle both rising and
-     * falling edges.
-     * 
-     * When we see any edge, we save the value of timer 1 and reset it to 0.
-     * Because we always reset it to 0, the value of the timer is the elapsed
-     * time since the last edge. We time both pulses and gaps this way.
-     *
-     * If a pulse is an expected length, we handle the bit and continue. If it
-     * is an unexpected length, we disable end-of-pulse interrupts. We handle
-     * data when we see the ends of pulses, so disabling those interrupts stops
-     * data reception. We also stop accepting data after receiving the expected
-     * number of bits from a transmission.
-     *
-     * Data reception resets upon observing a long silence.
-     */
-
-    // Data accumulator
-    static unsigned int data = 0;
-    static unsigned char bit_count = 0;
-
-    static bool wait_for_silence = false;
-    
-    static bool next_edge_rising = false;
-
-    if (INTE && INTF)
-    {
-        // Investigate using the INT pin instead of the CCP module
-        
-        TMR1ON = 0;
-        TMR1_t pulse_width = TMR1;
-        TMR1 = 0;
-        TMR1ON = 1;
-   
-        if (next_edge_rising)
-        {
-            // Rising edge detected (end of pulse)
-            
-            // Only process the pulse if we're not waiting for a long silence to
-            // reset.
-            if (!wait_for_silence)
-            {
-                g_pulses_received[bit_count] = pulse_width;
-
-                if (pulse_width > 250 && pulse_width < 350)
-                {
-                    // Received a 0
-                    data <<= 1;
-                    bit_count++;
-                }
-                else if (pulse_width > 400 && pulse_width < 500)
-                {
-                    // Received a 1
-                    data = (data << 1) | 1;
-                    bit_count++;
-                }
-                else
-                {
-                    // Invalid pulse width. Something has gone wrong, so we're
-                    // going to stop reading in data and wait until we see a
-                    // long period of silence
-
-#ifndef DEBUG
-                    wait_for_silence = true;
-#else
-                    bit_count++;
-#endif
-                }
-
-                if (bit_count == TRANSMISSION_DATA_LENGTH)
-                {
-                    g_shot_received = true;
-                    g_shot_data_received = data;
-
-                    // We could just reset the data accumulator here and let
-                    // more shot data come through immediately, on the off
-                    // chance that the time between the end of one shot and the
-                    // start of the next is less than the silence reset, but
-                    // instead we're just going to wait for silence. This is
-                    // more robust and has a negligible impact on shot
-                    // throughput.
-                    wait_for_silence = true;
-                }
-            }
-        }
-        else // !next_edge_rising
-        {
-            // Falling edge detected (end of silence)
-#ifdef DEBUG
-            g_gaps_received[bit_count] = pulse_width;
-#endif
-            
-#ifndef DEBUG
-            if (pulse_width > 300)
-#else
-            if (bit_count == SHOT_DATA_LENGTH)
-#endif
-            {
-                // Long silence. Reset
-                data = 0;
-                bit_count = 0;
-
-                wait_for_silence = false;
-            }
-        }
-        
-        next_edge_rising = !next_edge_rising;
-
-        // Toggle the edge we're looking for. This can cause spurious
-        // interrupts, so we disable them during the change.
-        INTE = 0;
-        // 1 to capture rising edges, 0 to capture falling edges
-        INTEDG = next_edge_rising;
-        INTF = 0;
-        INTE = 1;
-    }
 }

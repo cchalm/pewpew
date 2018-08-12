@@ -8,6 +8,7 @@
 #include "system.h"
 
 #include "LEDDisplay.h"
+#include "IRReceiver.h"
 #include "IRTransmitter.h"
 
 #include <xc.h>
@@ -23,18 +24,19 @@ void configureSystem(void)
     //         +---- GIE    - Disable active interrupts. This should be set to 1 before starting program logic
     //         |+--- PEIE   - Enable peripheral interrupts
     //         ||+-- TMR0IE - Enable Timer0 interrupt
-    //         |||+- INTE   - Enable external interrupts
-    //         ||||
+    //         |||
+    //         |||
     INTCON = 0b01110000;
     
     //             +-------- RBPU    - Disable Port B pull-ups
-    //             |+------- INTEDG  - Start by looking for falling edges
-    //             ||+------ TMR0CS  - Select Timer0 clock source: Internal instruction cycle clock
-    //             ||| +---- PSA     - Enable Timer0 prescaler
-    //             ||| | +-- PS[2:0] - Set prescaler 1:32
-    //             ||| ||-|
+    //             |
+    //             | +------ TMR0CS  - Select Timer0 clock source: Internal instruction cycle clock
+    //             | | +---- PSA     - Enable Timer0 prescaler
+    //             | | | +-- PS[2:0] - Set prescaler 1:32
+    //             | | ||-|
     OPTION_REG = 0b10000100;
 
+    initializeReceiver();
     configureTimer1();
     initializeTransmitter();
 
@@ -45,12 +47,10 @@ void configureSystem(void)
     ANSELC = 0;
     ANSELD = 0;
     ANSELE = 0;
-    // Set B0 to input, B4 - B5 to output
-    TRISB = 0b000001;
-    // Set D0 - D1 to input, D3 - D7 to output
-    TRISD = 0b00000011;
-    // Set C0 to output
-    TRISC = 0b0;
+    // Set B4 - B5 to output
+    TRISB &= ~0b111110;
+    // Set D0 - D1 to input
+    TRISD |= 0b11;
 
     initializeLEDDisplay();
 }

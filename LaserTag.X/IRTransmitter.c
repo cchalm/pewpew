@@ -63,10 +63,11 @@ void initializeTransmitter()
 {
     configureTimer2();
     configurePSMC();
+    TRISCbits.TRISC0 = 0; // C0 to output
 }
 
-volatile bool g_transmitting = false;
-unsigned int g_transmission_data = 0;
+static volatile bool g_transmitting = false;
+static unsigned int g_transmission_data = 0;
 
 void handleTransmissionTimingInterrupt()
 {

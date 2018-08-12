@@ -31,7 +31,6 @@
 #define MAG_OUT LOW
 
 typedef unsigned char  TMR0_t;
-typedef unsigned short TMR1_t;
 
 #define TMR0_PRELOAD 5 // 255 - 250
 
