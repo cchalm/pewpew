@@ -32,8 +32,6 @@
 
 typedef unsigned char  TMR0_t;
 
-#define TMR0_PRELOAD 5 // 255 - 250
-
 void configureSystem(void);
 void delay(unsigned long d);
 void delayTiny(unsigned long d);

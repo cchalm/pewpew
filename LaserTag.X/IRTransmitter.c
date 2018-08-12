@@ -17,7 +17,7 @@
 
 typedef unsigned char TMR2_t;
 
-void configureTimer2()
+static void configureTimer2()
 {
     // Timer 2 is used to time P1MDLBIT switches
     
@@ -31,7 +31,7 @@ void configureTimer2()
     TRANSMIT_PIN = LOW;
 }
 
-void configurePSMC(void)
+static void configurePSMC(void)
 {
     // Set up PSMC1 for modulated fixed duty cycle PWM
     // Disable the PSMC module before configuring it

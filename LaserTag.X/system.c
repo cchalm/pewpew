@@ -7,37 +7,23 @@
 
 #include "system.h"
 
-#include "LEDDisplay.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
+#include "LEDDisplay.h"
+#include "realTimeClock.h"
 
 #include <xc.h>
-
-void configureTimer1(void);
 
 void configureSystem(void)
 {
     // Configure the internal oscillator for 16/32MHz
     OSCCON = 0b11111000;
 
-    // Set up Timer0
-    //         +---- GIE    - Disable active interrupts. This should be set to 1 before starting program logic
-    //         |+--- PEIE   - Enable peripheral interrupts
-    //         ||+-- TMR0IE - Enable Timer0 interrupt
-    //         |||
-    //         |||
-    INTCON = 0b01110000;
-    
-    //             +-------- RBPU    - Disable Port B pull-ups
-    //             |
-    //             | +------ TMR0CS  - Select Timer0 clock source: Internal instruction cycle clock
-    //             | | +---- PSA     - Enable Timer0 prescaler
-    //             | | | +-- PS[2:0] - Set prescaler 1:32
-    //             | | ||-|
-    OPTION_REG = 0b10000100;
+    INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
+    INTCONbits.PEIE = 1; // Enable peripheral interrupts
 
+    initializeRTC();
     initializeReceiver();
-    configureTimer1();
     initializeTransmitter();
 
     // Disable analog inputs. This fixes a read-modify-write issue with setting
@@ -53,15 +39,6 @@ void configureSystem(void)
     TRISD |= 0b11;
 
     initializeLEDDisplay();
-}
-
-void configureTimer1(void)
-{
-    //         +------- TMR1CS[1:0] - Set clock source: instruction clock (Fosc / 4)
-    //         | +----- T1CKPS[1:0] - Set prescaler 1:8
-    //         | |   +- TMR1ON - Enable Timer1
-    //        ||||   |
-    T1CON = 0b00110001;
 }
 
 void _delay_gen(unsigned long d, volatile unsigned int multiplier)

@@ -12,11 +12,22 @@
 
 #include <stdbool.h>
 
+static void configureTimer1(void)
+{
+    //         +------- TMR1CS[1:0] - Set clock source: instruction clock (Fosc / 4)
+    //         | +----- T1CKPS[1:0] - Set prescaler 1:8
+    //         | |   +- TMR1ON - Enable Timer1
+    //        ||||   |
+    T1CON = 0b00110001;
+}
+
 void initializeReceiver()
 {
     OPTION_REGbits.INTEDG = 0; // External interrupts: start by looking for falling edges
     INTCONbits.INTE = 1; // Enable external interrupts
     TRISBbits.TRISB0 = 1; // B0 to input
+
+    configureTimer1();
 }
 
 typedef unsigned short TMR1_t;

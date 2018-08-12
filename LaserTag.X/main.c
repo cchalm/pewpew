@@ -34,12 +34,11 @@
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "LEDDisplay.h"
+#include "realTimeClock.h"
 #include "system.h"
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
-
-typedef unsigned int count_t;
 
 #define MAX_HEALTH 10
 #define MAX_AMMO 10
@@ -61,11 +60,6 @@ enum
     INVALID_SHOT_DATA_RECEIVED = 0b1001,
     TRANSMISSION_OVERLAP = 0b100101
 };
-
-// Counts seconds. Overflows to 0 after ~18 hours (1092.25 minutes)
-volatile count_t g_s_count;
-// Counts milliseconds. Overflows to 0 after ~1 minute (65.535 seconds)
-volatile count_t g_ms_count;
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
@@ -116,10 +110,6 @@ int main(void)
     bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
     bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
-    g_ms_count = 0;
-    g_s_count = 0;
-
-    TMR0 = TMR0_PRELOAD;
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
@@ -140,6 +130,12 @@ int main(void)
             if (player_id != g_shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
+        }
+
+        // Assumes that we hit this function at least once per millisecond
+        if (getMillisecondCount() == g_shot_enable_ms_count)
+        {
+            g_can_shoot = true;
         }
 
         // Snapshot input state. This way, we don't have to worry about the
@@ -166,7 +162,7 @@ int main(void)
 
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
-            g_shot_enable_ms_count = g_ms_count + SHOT_DELAY;
+            g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY;
             g_can_shoot = false;
         }
         else if (!FULL_AUTO)
@@ -174,11 +170,11 @@ int main(void)
             // When in semi-auto mode, only enable shot a short time after
             // releasing the trigger. This is to prevent button bounces from
             // causing shots when releasing the trigger
-            if (trigger_was_pressed && (g_shot_enable_ms_count - g_ms_count < BOUNCE_DELAY))
+            if (trigger_was_pressed && (g_shot_enable_ms_count - getMillisecondCount() < BOUNCE_DELAY))
             {
                 // Trigger was pressed and now isn't - the trigger was released
                 g_can_shoot = false;
-                g_shot_enable_ms_count = g_ms_count + BOUNCE_DELAY;
+                g_shot_enable_ms_count = getMillisecondCount() + BOUNCE_DELAY;
             }
         }
 
@@ -201,7 +197,7 @@ int main(void)
 // Main Interrupt Service Routine (ISR)
 void __interrupt () ISR(void)
 {
-    handleTimingInterrupt();
+    handleRTCTimerInterrupt();
     handleTransmissionTimingInterrupt();
     handleSignalReceptionInterrupt();
 }
@@ -231,32 +227,4 @@ void flash(void)
     PIN_MUZZLE_FLASH = 0;
     NOP();
     PIN_MUZZLE_FLASH = 1;
-}
-
-void handleTimingInterrupt(void)
-{
-    // Real-time timer logic
-
-    if (!(TMR0IF && TMR0IE))
-        return;
-
-    static count_t next_s = 1000;
-
-    g_ms_count++;
-
-    if (g_ms_count == next_s)
-    {
-        g_s_count++;
-        next_s = g_ms_count + 1000;
-    }
-
-    if (g_ms_count == g_shot_enable_ms_count)
-    {
-        g_can_shoot = true;
-    }
-
-    // Preload timer
-    TMR0 = TMR0_PRELOAD;
-    // Reset flag
-    TMR0IF = 0;
 }
