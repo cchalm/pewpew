@@ -30,13 +30,48 @@ void initializeReceiver()
     configureTimer1();
 }
 
+// TMR1 clocks at (Fosc / 4) and is prescaled 8x. 32MHz / 4 / 8 = 1MHz
+#define TMR1_FREQ 1000000 // 1MHz
+// TMR1 period in microseconds. Assumes period is a whole integer
+#define TMR1_PERIOD_US (1000000 / (TMR1_FREQ))
+
+// Pulse lengths in terms of TMR1 cycles
+#define PULSE_GAP_LENGTH_TMR1_CYCLES  ((PULSE_GAP_LENGTH_US) / (TMR1_PERIOD_US))
+#define ZERO_PULSE_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_US) / (TMR1_PERIOD_US))
+#define ONE_PULSE_LENGTH_TMR1_CYCLES  ((ONE_PULSE_LENGTH_US) / (TMR1_PERIOD_US))
+
+#define MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_US) / (TMR1_PERIOD_US))
+
+// Pulses come out of the receiver longer than sent, and gaps come out shorter
+// than sent. Adjust lengths using this value to get accurate measurements.
+// Units are microseconds. Estimated from TSOP2240 datasheet, figure 4, then
+// adjusted empirically
+#define PULSE_LENGTH_BIAS_US 35
+// Units are TMR1 cycles
+#define PULSE_LENGTH_BIAS_TMR1_CYCLES ((PULSE_LENGTH_BIAS_US) / (TMR1_PERIOD_US))
+
+// Pulse lengths within this many microseconds of each other will be considered
+// equivalent
+#define PULSE_LENGTH_EPSILON_US 50
+// Units are TMR1 cycles
+#define PULSE_LENGTH_EPSILON_TMR1_CYCLES ((PULSE_LENGTH_EPSILON_US) / (TMR1_PERIOD_US))
+
+#define PULSE_GAP_UPPER_LENGTH_TMR1_CYCLES ((PULSE_GAP_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define PULSE_GAP_LOWER_LENGTH_TMR1_CYCLES ((PULSE_GAP_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES ((ONE_PULSE_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES ((ONE_PULSE_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+
 typedef unsigned short TMR1_t;
 
 static volatile bool g_transmission_received = false;
 static volatile unsigned int g_transmission_data = 0;
 
+#define RECORD_GAPS
+
 static volatile TMR1_t g_pulses_received[TRANSMISSION_DATA_LENGTH];
-#ifdef DEBUG
+#ifdef RECORD_GAPS
 static volatile TMR1_t g_gaps_received[TRANSMISSION_DATA_LENGTH];
 #endif
 
@@ -89,7 +124,9 @@ void handleSignalReceptionInterrupt()
         if (next_edge_rising)
         {
             // Rising edge detected (end of pulse)
-            
+
+            pulse_width -= PULSE_LENGTH_BIAS_US;
+
             // Only process the pulse if we're not waiting for a long silence to
             // reset.
             if (!wait_for_silence)
@@ -114,13 +151,15 @@ void handleSignalReceptionInterrupt()
                 // if the duty cycle is low, irradiance was low, indicating an
                 // off-target or distant shot
 
-                if (pulse_width > 250 && pulse_width < 350)
+                if (pulse_width > ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES
+                        && pulse_width < ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES)
                 {
                     // Received a 0
                     data <<= 1;
                     bit_count++;
                 }
-                else if (pulse_width > 400 && pulse_width < 500)
+                else if (pulse_width > ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES
+                        && pulse_width < ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES)
                 {
                     // Received a 1
                     data = (data << 1) | 1;
@@ -158,14 +197,17 @@ void handleSignalReceptionInterrupt()
         else // !next_edge_rising
         {
             // Falling edge detected (end of silence)
-#ifdef DEBUG
+
+            pulse_width += PULSE_LENGTH_BIAS_US;
+
+#ifdef RECORD_GAPS
             g_gaps_received[bit_count] = pulse_width;
 #endif
-            
+
 #ifdef DEBUG
             if (bit_count == SHOT_DATA_LENGTH)
 #else
-            if (pulse_width > 300)
+            if (pulse_width >= MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES)
 #endif
             {
                 // Long silence. Reset

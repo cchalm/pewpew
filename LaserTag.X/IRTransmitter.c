@@ -15,8 +15,6 @@
 
 #define TRANSMIT_PIN P1MDLBIT
 
-typedef unsigned char TMR2_t;
-
 static void configureTimer2()
 {
     // Timer 2 is used to time P1MDLBIT switches
@@ -66,6 +64,35 @@ void initializeTransmitter()
     TRISCbits.TRISC0 = 0; // C0 to output
 }
 
+// TMR2 clocks at (Fosc / 4) and is prescaled 16x. 32MHz / 4 / 16 = 0.5MHz
+#define TMR2_FREQ 500000 // 0.5MHz
+// TMR2 period in microseconds. Assumes period is a whole integer
+#define TMR2_PERIOD_US (1000000 / (TMR2_FREQ))
+
+/*
+ * Keeping the output enabled for the length of a 10-cycle pulse will produce an
+ * 11-cycle pulse, because the 11th cycle starts before we disable the output.
+ * To output a 10-cycle pulse, we should instead output for slightly longer than
+ * the length of 9 cycles, so that the 10th cycle begins before we turn off the
+ * output.
+ *
+ * Similarly, starting a pulse exactly when the nth cycle begins will probably
+ * make the pulse start on the n+1 cycle, so we should enable output during the
+ * n-1 cycle.
+ */
+
+// Define adjustment as 90% of the modulation period. I.e. make state changes
+// 10% of the way through the cycle preceding the targeted one.
+// Careful, We're fudging with integers here
+#define TRANSMITTER_TIMING_ADJUSTMENT_US ((MODULATION_PERIOD_US) - ((MODULATION_PERIOD_US) / 10))
+
+// Pulse lengths in terms of TMR2 cycles, adjusted for output
+#define PULSE_GAP_LENGTH_TMR2_CYCLES  (((PULSE_GAP_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
+#define ZERO_PULSE_LENGTH_TMR2_CYCLES (((ZERO_PULSE_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
+#define ONE_PULSE_LENGTH_TMR2_CYCLES  (((ONE_PULSE_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
+
+typedef unsigned char TMR2_t;
+
 static volatile bool g_transmitting = false;
 static unsigned int g_transmission_data = 0;
 
@@ -86,7 +113,7 @@ void handleTransmissionTimingInterrupt()
         
         TMR2_t pulse_width =
                 ((g_transmission_data >> transmission_data_index) & 1) ? 
-                    ONE_PULSE_TMR2_WIDTH : ZERO_PULSE_TMR2_WIDTH;
+                    ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
         PR2 = pulse_width;
     }
     else // !next_edge_rising
@@ -106,7 +133,7 @@ void handleTransmissionTimingInterrupt()
         }
         else
         {
-            PR2 = PULSE_GAP_TMR2_WIDTH;
+            PR2 = PULSE_GAP_LENGTH_TMR2_CYCLES;
         }
     }
 
