@@ -44,16 +44,26 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 10
+#define FIRE_RATE 60
 // Delay between shots in ms
-#define SHOT_DELAY 1000/(FIRE_RATE)
+#define SHOT_DELAY_MS 1000/(FIRE_RATE)
 #define FULL_AUTO true
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
 // be registered. This is to mitigate button bounce.
 #define BOUNCE_DELAY 2
 
-//#define DEBUG
+#define ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
+#define COUNT_DROPPED_TRANSMISSIONS
+#define DISPLAY_DROP_COUNT
+#define RANDOMIZE_SHOT_DELAY
+
+#ifdef RANDOMIZE_SHOT_DELAY
+#define MIN_SHOT_DELAY_MS 20
+#define MAX_SHOT_DELAY_MS 120
+#endif
+
+#undef DISPLAY_RECEIVED_DATA
 
 enum
 {
@@ -78,6 +88,11 @@ void handleTimingInterrupt(void);
 void handleShotReceptionInterrupt(void);
 
 void handleShotReceived(unsigned int shot_data_received);
+
+#ifdef COUNT_DROPPED_TRANSMISSIONS
+unsigned long g_num_shots_sent = 0;
+unsigned long g_num_shots_received = 0;
+#endif
 
 int main(void)
 {
@@ -118,16 +133,25 @@ int main(void)
         if (transmissionReceived())
         {
             // Make a copy so it doesn't get overwritten
-            unsigned int player_id = getTransmissionData();
-            setLEDDisplay(player_id);
+            unsigned int received_data = getTransmissionData();
+#ifdef DISPLAY_RECEIVED_DATA
+            setLEDDisplay(received_data);
+#endif
 
             PIN_HIT_LIGHT = 0;
             NOP();
             PIN_HIT_LIGHT = 1;
 
-            // Look up player ID
-#ifndef DEBUG
-            if (player_id != g_shot_data_to_send)
+#ifdef COUNT_DROPPED_TRANSMISSIONS
+            g_num_shots_received++;
+#ifdef DISPLAY_DROP_COUNT
+            unsigned int num_shots_missed = g_num_shots_sent - g_num_shots_received;
+            setLEDDisplay(num_shots_missed);
+#endif
+#endif
+
+#ifdef ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
+            if (received_data != g_shot_data_to_send)
                 error(INVALID_SHOT_DATA_RECEIVED);
 #endif
         }
@@ -162,7 +186,13 @@ int main(void)
 
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
-            g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY;
+#ifdef RANDOMIZE_SHOT_DELAY
+            int randDelay = (abs(rand()) % (MAX_SHOT_DELAY_MS - MIN_SHOT_DELAY_MS + 1)) + MIN_SHOT_DELAY_MS;
+            g_shot_enable_ms_count = getMillisecondCount() + randDelay;
+#else
+            g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
+#endif
+
             g_can_shoot = false;
         }
         else if (!FULL_AUTO)
@@ -217,6 +247,10 @@ void shoot(void)
     if (transmissionInProgress)
         error(TRANSMISSION_OVERLAP);
     
+#ifdef COUNT_DROPPED_TRANSMISSIONS
+    g_num_shots_sent++;
+#endif
+
     flash();
     //ammo--;
     //setLEDDisplay(shot_data_to_send);
