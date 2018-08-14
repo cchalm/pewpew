@@ -144,10 +144,6 @@ int main(void)
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
             g_num_shots_received++;
-#ifdef DISPLAY_DROP_COUNT
-            unsigned int num_shots_missed = g_num_shots_sent - g_num_shots_received;
-            setLEDDisplay(num_shots_missed);
-#endif
 #endif
 
 #ifdef ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
@@ -248,6 +244,10 @@ void shoot(void)
         error(TRANSMISSION_OVERLAP);
     
 #ifdef COUNT_DROPPED_TRANSMISSIONS
+#ifdef DISPLAY_DROP_COUNT
+    unsigned int num_shots_missed = g_num_shots_sent - g_num_shots_received;
+    setLEDDisplay(num_shots_missed);
+#endif
     g_num_shots_sent++;
 #endif
 
