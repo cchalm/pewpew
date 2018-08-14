@@ -19,6 +19,8 @@ static void configureTimer1(void)
     //         | |   +- TMR1ON - Enable Timer1
     //        ||||   |
     T1CON = 0b00110001;
+    // Enable overflow interrupts
+    TMR1IE = 1;
 }
 
 void initializeReceiver()
@@ -104,6 +106,16 @@ void handleSignalReceptionInterrupt()
      * Data reception resets upon observing a long silence.
      */
 
+    // Stores whether an overflow has occurred during the pulse or gap currently
+    // being timed. There may be race conditions between TMR1IF and INTF.
+    static bool overflow = false;
+
+    if (TMR1IF && TMR1IE)
+    {
+        overflow = true;
+        TMR1IF = 0;
+    }
+
     // Data accumulator
     static unsigned int data = 0;
     static unsigned char bit_count = 0;
@@ -114,18 +126,33 @@ void handleSignalReceptionInterrupt()
 
     if (INTE && INTF)
     {
-        // Investigate using the INT pin instead of the CCP module
-        
         TMR1ON = 0;
         TMR1_t pulse_width = TMR1;
         TMR1 = 0;
         TMR1ON = 1;
+
+        if (overflow)
+        {
+            // If we overflowed, set the pulse width to the maximum. We don't
+            // care about the exact duration if it is longer than a full Timer1
+            // overflow cycle
+            pulse_width = (~(TMR1_t)0);
+            overflow = false;
+        }
+        else if (next_edge_rising)
+        {
+            // Adjust pulse width
+            pulse_width -= PULSE_LENGTH_BIAS_TMR1_CYCLES;
+        }
+        else
+        {
+            // Adjust gap width
+            pulse_width += PULSE_LENGTH_BIAS_TMR1_CYCLES;
+        }
    
         if (next_edge_rising)
         {
             // Rising edge detected (end of pulse)
-
-            pulse_width -= PULSE_LENGTH_BIAS_US;
 
             // Only process the pulse if we're not waiting for a long silence to
             // reset.
@@ -197,8 +224,6 @@ void handleSignalReceptionInterrupt()
         else // !next_edge_rising
         {
             // Falling edge detected (end of silence)
-
-            pulse_width += PULSE_LENGTH_BIAS_US;
 
 #ifdef RECORD_GAPS
             g_gaps_received[bit_count] = pulse_width;
