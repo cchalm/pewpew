@@ -73,18 +73,6 @@
  *     282 modulation cycles @ 25us per cycle = 7.15ms
  */
 
-// TMR1 clocks at (Fosc / 4) and is prescaled 8x. 32 / 4 / 8 = 1MHz. At 1MHz, a
-// cycle is 1us.
-#define PULSE_GAP_TMR1_WIDTH  300 //          300us * (1 cycle / 1us) = 300 cycles
-#define ZERO_PULSE_TMR1_WIDTH 230 // (250us - 20us) * (1 cycle / 1us) = 230 cycles
-#define ONE_PULSE_TMR1_WIDTH  380 // (400us - 20us) * (1 cycle / 1us) = 380 cycles
-
-// TMR2 clocks at (Fosc / 4) and is prescaled 16x. 32 / 4 / 16 = 0.5MHz. At
-// 0.5MHz, a cycle is 2us.
-#define PULSE_GAP_TMR2_WIDTH  150 //          300us * (1 cycle / 2us) = 150 cycles
-#define ZERO_PULSE_TMR2_WIDTH 115 // (250us - 20us) * (1 cycle / 2us) = 115 cycles
-#define ONE_PULSE_TMR2_WIDTH  190 // (400us - 20us) * (1 cycle / 2us) = 190 cycles
-
 #define TRANSMISSION_DATA_LENGTH 10
 
 #endif	/* TRANSMISSIONCONSTANTS_H */
