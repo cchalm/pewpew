@@ -70,15 +70,19 @@ void initializeTransmitter()
 #define TMR2_PERIOD_US (1000000 / (TMR2_FREQ))
 
 /*
+ * With the PSMC in modulation mode, turning off a pulse causes the pulse to
+ * complete its current cycle and then stop. Turning it on again immediately
+ * starts a new cycle.
+ *
  * Keeping the output enabled for the length of a 10-cycle pulse will produce an
  * 11-cycle pulse, because the 11th cycle starts before we disable the output.
  * To output a 10-cycle pulse, we should instead output for slightly longer than
  * the length of 9 cycles, so that the 10th cycle begins before we turn off the
  * output.
  *
- * Similarly, starting a pulse exactly when the nth cycle begins will probably
- * make the pulse start on the n+1 cycle, so we should enable output during the
- * n-1 cycle.
+ * We start timing the gap as soon as we stop the previous pulse, so we need to
+ * add the adjustment back to the gap time to make up for stopping the pulse a
+ * little early.
  */
 
 // Define adjustment as 90% of the modulation period. I.e. make state changes
@@ -87,7 +91,7 @@ void initializeTransmitter()
 #define TRANSMITTER_TIMING_ADJUSTMENT_US ((MODULATION_PERIOD_US) - ((MODULATION_PERIOD_US) / 10))
 
 // Pulse lengths in terms of TMR2 cycles, adjusted for output
-#define PULSE_GAP_LENGTH_TMR2_CYCLES  (((PULSE_GAP_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
+#define PULSE_GAP_LENGTH_TMR2_CYCLES  (((PULSE_GAP_LENGTH_US) + (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
 #define ZERO_PULSE_LENGTH_TMR2_CYCLES (((ZERO_PULSE_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
 #define ONE_PULSE_LENGTH_TMR2_CYCLES  (((ONE_PULSE_LENGTH_US) - (TRANSMITTER_TIMING_ADJUSTMENT_US)) / (TMR2_PERIOD_US))
 
