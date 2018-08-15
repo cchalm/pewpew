@@ -48,7 +48,7 @@ void initializeReceiver()
 // than sent. Adjust lengths using this value to get accurate measurements.
 // Units are microseconds. Estimated from TSOP2240 datasheet, figure 4, then
 // adjusted empirically
-#define PULSE_LENGTH_BIAS_US 35
+#define PULSE_LENGTH_BIAS_US 40
 // Units are TMR1 cycles
 #define PULSE_LENGTH_BIAS_TMR1_CYCLES ((PULSE_LENGTH_BIAS_US) / (TMR1_PERIOD_US))
 
