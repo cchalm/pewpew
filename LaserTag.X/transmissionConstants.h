@@ -1,10 +1,3 @@
-/* 
- * File:   transmissionConstants.h
- * Author: chris
- *
- * Created on August 11, 2018, 11:49 PM
- */
-
 #ifndef TRANSMISSIONCONSTANTS_H
 #define	TRANSMISSIONCONSTANTS_H
 

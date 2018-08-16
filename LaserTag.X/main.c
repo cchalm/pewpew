@@ -1,12 +1,3 @@
-/*
- * File:   main.c
- * Author: Chris
- *
- * Created on January 4, 2015, 3:36 PM
- */
-
-#include <xc.h>
-
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
@@ -39,6 +30,7 @@
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
+#include <xc.h>
 
 #define MAX_HEALTH 10
 #define MAX_AMMO 10

@@ -1,10 +1,3 @@
-/* 
- * File:   LEDDisplay.h
- * Author: chris
- *
- * Created on August 11, 2018, 9:49 PM
- */
-
 #ifndef LEDDISPLAY_H
 #define	LEDDISPLAY_H
 

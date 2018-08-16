@@ -1,10 +1,3 @@
-/* 
- * File:   IRTransmitter.h
- * Author: chris
- *
- * Created on August 11, 2018, 9:44 PM
- */
-
 #ifndef IRTRANSMITTER_H
 #define	IRTRANSMITTER_H
 

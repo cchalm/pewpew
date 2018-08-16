@@ -1,10 +1,3 @@
-/*
- * File:   LEDDisplay.c
- * Author: Chris
- *
- * Created on August 11, 2018, 9:45 PM
- */
-
 #include "LEDDisplay.h"
 
 #include <xc.h>

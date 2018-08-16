@@ -1,10 +1,3 @@
-/* 
- * File:   system.h
- * Author: Chris
- *
- * Created on January 6, 2015, 9:31 PM
- */
-
 #ifndef SYSTEM_H
 #define SYSTEM_H
 

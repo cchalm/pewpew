@@ -1,10 +1,3 @@
-/*
- * File:   IRTransmitter.c
- * Author: Chris
- *
- * Created on August 11, 2018, 9:45 PM
- */
-
 #include <xc.h>
 #include "IRTransmitter.h"
 
