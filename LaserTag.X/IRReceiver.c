@@ -79,7 +79,7 @@ const uint16_t ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_UPPER_LENGTH_
 const uint16_t ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES;
 #endif
 
-typedef unsigned short TMR1_t;
+typedef uint16_t TMR1_t;
 
 static volatile bool g_transmission_received = false;
 static volatile uint16_t g_transmission_data = 0;
@@ -132,7 +132,7 @@ void handleSignalReceptionInterrupt()
 
     // Data accumulator
     static uint16_t data = 0;
-    static unsigned char bit_count = 0;
+    static uint8_t bit_count = 0;
 
     static bool wait_for_silence = false;
     

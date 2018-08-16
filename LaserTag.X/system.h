@@ -25,7 +25,7 @@
 #define MAG_IN HIGH
 #define MAG_OUT LOW
 
-typedef unsigned char  TMR0_t;
+typedef uint8_t TMR0_t;
 
 void configureSystem(void);
 void delay(uint32_t d);

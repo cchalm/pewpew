@@ -99,7 +99,7 @@ const uint16_t ZERO_PULSE_LENGTH_TMR2_CYCLES_eval = ZERO_PULSE_LENGTH_TMR2_CYCLE
 const uint16_t ONE_PULSE_LENGTH_TMR2_CYCLES_eval = ONE_PULSE_LENGTH_TMR2_CYCLES;
 #endif
 
-typedef unsigned char TMR2_t;
+typedef uint8_t TMR2_t;
 
 static volatile bool g_transmitting = false;
 static uint16_t g_transmission_data = 0;
@@ -110,7 +110,7 @@ void handleTransmissionTimingInterrupt()
         return;
 
     // Send MSB first
-    static unsigned char transmission_data_index = TRANSMISSION_LENGTH;
+    static uint8_t transmission_data_index = TRANSMISSION_LENGTH;
     static bool next_edge_rising = true;
 
     if (next_edge_rising)
@@ -156,8 +156,8 @@ bool transmitAsync(uint16_t data)
     g_transmitting = true;
     
     // Append parity bits to the transmission
-    unsigned char bit_sum = sumBits(data);
-    unsigned char parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
+    uint8_t bit_sum = sumBits(data);
+    uint8_t parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
     g_transmission_data = (data << NUM_PARITY_BITS) | parity_bits;
     
     TMR2 = 0;
