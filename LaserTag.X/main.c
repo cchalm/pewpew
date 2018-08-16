@@ -76,7 +76,8 @@ uint16_t g_shot_data_to_send;
 
 void setHealthDisplay(uint8_t value);
 void shoot(void);
-void flash(void);
+void flashMuzzleLight(void);
+void flashHitLight(void);
 
 void handleTimingInterrupt(void);
 void handleShotReceptionInterrupt(void);
@@ -131,9 +132,7 @@ int main(void)
             setLEDDisplay(received_data);
 #endif
 
-            PIN_HIT_LIGHT = 0;
-            NOP();
-            PIN_HIT_LIGHT = 1;
+            flashHitLight();
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
             g_num_shots_received++;
@@ -244,14 +243,21 @@ void shoot(void)
     g_num_shots_sent++;
 #endif
 
-    flash();
+    flashMuzzleLight();
     //ammo--;
     //setLEDDisplay(shot_data_to_send);
 }
 
-void flash(void)
+void flashMuzzleLight(void)
 {
     PIN_MUZZLE_FLASH = 0;
     NOP();
     PIN_MUZZLE_FLASH = 1;
+}
+
+void flashHitLight(void)
+{
+    PIN_HIT_LIGHT = 0;
+    NOP();
+    PIN_HIT_LIGHT = 1;
 }
