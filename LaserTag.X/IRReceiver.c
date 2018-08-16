@@ -8,6 +8,7 @@
 #include <xc.h>
 #include "IRReceiver.h"
 
+#include "bitwiseUtils.h"
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
@@ -92,9 +93,9 @@ static volatile unsigned int g_transmission_data = 0;
 
 #define RECORD_GAPS
 
-static volatile TMR1_t g_pulses_received[TRANSMISSION_DATA_LENGTH];
+static volatile TMR1_t g_pulses_received[TRANSMISSION_LENGTH];
 #ifdef RECORD_GAPS
-static volatile TMR1_t g_gaps_received[TRANSMISSION_DATA_LENGTH];
+static volatile TMR1_t g_gaps_received[TRANSMISSION_LENGTH];
 #endif
 
 void handleSignalReceptionInterrupt()
@@ -225,7 +226,7 @@ void handleSignalReceptionInterrupt()
 #endif
                 }
 
-                if (bit_count == TRANSMISSION_DATA_LENGTH)
+                if (bit_count == TRANSMISSION_LENGTH)
                 {
                     g_transmission_received = true;
                     g_transmission_data = data;
@@ -275,14 +276,29 @@ void handleSignalReceptionInterrupt()
     }
 }
 
-bool transmissionReceived()
+bool tryGetTransmissionData(unsigned int* data_out)
 {
-    return g_transmission_received;
-}
+    if (!g_transmission_received)
+        return false;
 
-unsigned int getTransmissionData()
-{
+    // Copy the data to reduce the chance of it getting overwritten while we're
+    // working on it
+    unsigned int data = g_transmission_data;
+
+    // Reset transmission received flag until the next transmission
     g_transmission_received = false;
-    return g_transmission_data;
+
+    uint16_t parity_bits_mask = (1 << NUM_PARITY_BITS) - 1;
+    // Sum all except the last n bits, n being the number of
+    // parity bits
+    uint8_t bit_sum = sumBits(data & ~parity_bits_mask);
+    bool parity_matches = ((bit_sum & parity_bits_mask) == (data & parity_bits_mask));
+
+    if (parity_matches)
+    {
+        *data_out = data >> NUM_PARITY_BITS;
+    }
+
+    return parity_matches;
 }
 

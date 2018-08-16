@@ -44,7 +44,7 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 60
+#define FIRE_RATE 70
 // Delay between shots in ms
 #define SHOT_DELAY_MS 1000/(FIRE_RATE)
 #define FULL_AUTO true
@@ -57,10 +57,11 @@
 #define COUNT_DROPPED_TRANSMISSIONS
 #define DISPLAY_DROP_COUNT
 #define RANDOMIZE_SHOT_DELAY
+#define EVALUATE_CONSTANTS
 
 #ifdef RANDOMIZE_SHOT_DELAY
 #define MIN_SHOT_DELAY_MS 20
-#define MAX_SHOT_DELAY_MS 120
+#define MAX_SHOT_DELAY_MS 500
 #endif
 
 #undef DISPLAY_RECEIVED_DATA
@@ -130,10 +131,9 @@ int main(void)
 
     while(true)
     {
-        if (transmissionReceived())
+        unsigned int received_data;
+        if (tryGetTransmissionData(&received_data))
         {
-            // Make a copy so it doesn't get overwritten
-            unsigned int received_data = getTransmissionData();
 #ifdef DISPLAY_RECEIVED_DATA
             setLEDDisplay(received_data);
 #endif

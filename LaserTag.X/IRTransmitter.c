@@ -8,6 +8,7 @@
 #include <xc.h>
 #include "IRTransmitter.h"
 
+#include "bitwiseUtils.h"
 #include "system.h"
 #include "transmissionConstants.h"
 
@@ -116,7 +117,7 @@ void handleTransmissionTimingInterrupt()
         return;
 
     // Send MSB first
-    static unsigned char transmission_data_index = TRANSMISSION_DATA_LENGTH;
+    static unsigned char transmission_data_index = TRANSMISSION_LENGTH;
     static bool next_edge_rising = true;
 
     if (next_edge_rising)
@@ -141,7 +142,7 @@ void handleTransmissionTimingInterrupt()
             // Turn off the timer
             TMR2ON = 0;
             // Reset the data index
-            transmission_data_index = TRANSMISSION_DATA_LENGTH;
+            transmission_data_index = TRANSMISSION_LENGTH;
             // Let the main program know we're done transmitting
             g_transmitting = false;
         }
@@ -161,7 +162,10 @@ bool transmitAsync(unsigned int data)
         return false;
     g_transmitting = true;
     
-    g_transmission_data = data;
+    // Append parity bits to the transmission
+    unsigned char bit_sum = sumBits(data);
+    unsigned char parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
+    g_transmission_data = (data << NUM_PARITY_BITS) | parity_bits;
     
     TMR2 = 0;
     TMR2ON = 1;
