@@ -34,29 +34,29 @@ void configureSystem(void)
     initializeLEDDisplay();
 }
 
-void _delay_gen(unsigned long d, volatile unsigned int multiplier)
+void _delay_gen(uint32_t d, volatile uint16_t multiplier)
 {
-    volatile unsigned long i = 0;
+    volatile uint32_t i = 0;
     while (i != d)
     {
-        volatile unsigned int x = 0;
+        volatile uint16_t x = 0;
         while (x != multiplier)
             x++;
         i++;
     }
 }
 
-void delay(unsigned long d)
+void delay(uint32_t d)
 {
     _delay_gen(d, 600);
 }
 
-void delayTiny(unsigned long d)
+void delayTiny(uint32_t d)
 {
     _delay_gen(d, 0);
 }
 
-void error(unsigned int error_code)
+void error(uint16_t error_code)
 {
     GIE = 0;
     while (1)

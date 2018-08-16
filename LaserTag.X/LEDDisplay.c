@@ -28,7 +28,7 @@ void initializeLEDDisplay()
     TRISD &= ~LED_MASK_PORTD;
 }
 
-void setLEDDisplay(unsigned int bits)
+void setLEDDisplay(uint16_t bits)
 {
     // Bit-to-pin mapping:
     // MSB                                 LSB

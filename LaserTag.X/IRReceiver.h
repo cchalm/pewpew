@@ -2,6 +2,7 @@
 #define	IRRECEIVER_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 void initializeReceiver(void);
 void handleSignalReceptionInterrupt(void);
@@ -10,6 +11,6 @@ void handleSignalReceptionInterrupt(void);
 // transmission was received since the last call to tryGetTransmissionData.
 // Returns false otherwise. The contents of data_out are undefined when this
 // function returns false.
-bool tryGetTransmissionData(unsigned int* data_out);
+bool tryGetTransmissionData(uint16_t* data_out);
 
 #endif	/* IRRECEIVER_H */

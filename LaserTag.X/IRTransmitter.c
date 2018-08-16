@@ -102,7 +102,7 @@ const uint16_t ONE_PULSE_LENGTH_TMR2_CYCLES_eval = ONE_PULSE_LENGTH_TMR2_CYCLES;
 typedef unsigned char TMR2_t;
 
 static volatile bool g_transmitting = false;
-static unsigned int g_transmission_data = 0;
+static uint16_t g_transmission_data = 0;
 
 void handleTransmissionTimingInterrupt()
 {
@@ -149,7 +149,7 @@ void handleTransmissionTimingInterrupt()
     TMR2IF = 0;
 }
 
-bool transmitAsync(unsigned int data)
+bool transmitAsync(uint16_t data)
 {
     if (g_transmitting)
         return false;

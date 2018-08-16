@@ -82,7 +82,7 @@ const uint16_t ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_
 typedef unsigned short TMR1_t;
 
 static volatile bool g_transmission_received = false;
-static volatile unsigned int g_transmission_data = 0;
+static volatile uint16_t g_transmission_data = 0;
 
 #define RECORD_GAPS
 
@@ -131,7 +131,7 @@ void handleSignalReceptionInterrupt()
     }
 
     // Data accumulator
-    static unsigned int data = 0;
+    static uint16_t data = 0;
     static unsigned char bit_count = 0;
 
     static bool wait_for_silence = false;
@@ -269,14 +269,14 @@ void handleSignalReceptionInterrupt()
     }
 }
 
-bool tryGetTransmissionData(unsigned int* data_out)
+bool tryGetTransmissionData(uint16_t* data_out)
 {
     if (!g_transmission_received)
         return false;
 
     // Copy the data to reduce the chance of it getting overwritten while we're
     // working on it
-    unsigned int data = g_transmission_data;
+    uint16_t data = g_transmission_data;
 
     // Reset transmission received flag until the next transmission
     g_transmission_received = false;

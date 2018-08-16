@@ -1,6 +1,8 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+#include <stdint.h>
+
 #define OUTPUT 0
 #define INPUT 1
 #define HIGH 1
@@ -26,8 +28,8 @@
 typedef unsigned char  TMR0_t;
 
 void configureSystem(void);
-void delay(unsigned long d);
-void delayTiny(unsigned long d);
-void error(unsigned int error_code);
+void delay(uint32_t d);
+void delayTiny(uint32_t d);
+void error(uint16_t error_code);
 
 #endif // SYSTEM_H

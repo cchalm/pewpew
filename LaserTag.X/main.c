@@ -30,6 +30,7 @@
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <xc.h>
 
 #define MAX_HEALTH 10
@@ -69,22 +70,22 @@ enum
 count_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
-unsigned int g_shot_data_to_send;
+uint16_t g_shot_data_to_send;
 
 #define TRANSMISSION_DATA_LENGTH 10
 
-void setHealthDisplay(unsigned char value);
+void setHealthDisplay(uint8_t value);
 void shoot(void);
 void flash(void);
 
 void handleTimingInterrupt(void);
 void handleShotReceptionInterrupt(void);
 
-void handleShotReceived(unsigned int shot_data_received);
+void handleShotReceived(uint16_t shot_data_received);
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
-unsigned long g_num_shots_sent = 0;
-unsigned long g_num_shots_received = 0;
+uint32_t g_num_shots_sent = 0;
+uint32_t g_num_shots_received = 0;
 #endif
 
 int main(void)
@@ -109,12 +110,12 @@ int main(void)
 
     g_shot_data_to_send = 0b0101010101;
 
-    int health = MAX_HEALTH;
-    int ammo = MAX_AMMO;
+    int16_t health = MAX_HEALTH;
+    int16_t ammo = MAX_AMMO;
     setHealthDisplay(ammo);
 
     // Set the "was" variables for use on the first loop iteration
-    unsigned int input_state = INPUT_PORT;
+    uint16_t input_state = INPUT_PORT;
     bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
     bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
@@ -123,7 +124,7 @@ int main(void)
 
     while(true)
     {
-        unsigned int received_data;
+        uint16_t received_data;
         if (tryGetTransmissionData(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA
@@ -175,7 +176,7 @@ int main(void)
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
 #ifdef RANDOMIZE_SHOT_DELAY
-            int randDelay = (abs(rand()) % (MAX_SHOT_DELAY_MS - MIN_SHOT_DELAY_MS + 1)) + MIN_SHOT_DELAY_MS;
+            int16_t randDelay = (abs(rand()) % (MAX_SHOT_DELAY_MS - MIN_SHOT_DELAY_MS + 1)) + MIN_SHOT_DELAY_MS;
             g_shot_enable_ms_count = getMillisecondCount() + randDelay;
 #else
             g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
@@ -220,7 +221,7 @@ void __interrupt () ISR(void)
     handleSignalReceptionInterrupt();
 }
 
-void setHealthDisplay(unsigned char value)
+void setHealthDisplay(uint8_t value)
 {
     // Shift in zeros from the right and invert
     setLEDDisplay( ~(0b1111111111 << value) );
@@ -237,7 +238,7 @@ void shoot(void)
     
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
-    unsigned int num_shots_missed = g_num_shots_sent - g_num_shots_received;
+    uint16_t num_shots_missed = g_num_shots_sent - g_num_shots_received;
     setLEDDisplay(num_shots_missed);
 #endif
     g_num_shots_sent++;
