@@ -53,7 +53,7 @@
 #define EVALUATE_CONSTANTS
 
 #ifdef RANDOMIZE_SHOT_DELAY
-#define MIN_SHOT_DELAY_MS 20
+#define MIN_SHOT_DELAY_MS 50
 #define MAX_SHOT_DELAY_MS 500
 #endif
 
@@ -71,8 +71,6 @@ count_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
 uint16_t g_shot_data_to_send;
-
-#define TRANSMISSION_DATA_LENGTH 10
 
 void setHealthDisplay(uint8_t value);
 void shoot(void);
