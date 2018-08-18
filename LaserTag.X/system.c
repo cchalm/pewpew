@@ -9,8 +9,8 @@
 
 void configureSystem(void)
 {
-    // Configure the internal oscillator for 16/32MHz
-    OSCCON = 0b11111000;
+    // Internal oscillator is configured for 32MHz at startup, via the RSTOSC
+    // configuration word
 
     INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
     INTCONbits.PEIE = 1; // Enable peripheral interrupts
