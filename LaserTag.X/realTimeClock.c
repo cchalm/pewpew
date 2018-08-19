@@ -10,15 +10,21 @@
 #include <stdbool.h>
 #include <xc.h>
 
-#define TMR0_PRELOAD 5 // 255 - 250
-
 void initializeRTC()
 {
-    INTCONbits.TMR0IE = 1; // Enable Timer0 interrupt
-    OPTION_REGbits.TMR0CS = 0; // Select Timer0 clock source: Internal instruction cycle clock
-    OPTION_REGbits.PSA = 0; // Enable prescaler
-    OPTION_REGbits.PS = 0b100; // Set prescaler 1:32
-    TMR0 = TMR0_PRELOAD;
+    // Select HFINTOSC (16MHz?) as the timer 2 clock source
+    T2CLKCON = 0b0011;
+    // Set prescaler to 1:16
+    T2CONbits.CKPS = 0b101;
+    // Set period register (the value after which the timer will overflow) to
+    // 999. (999 + 1) cycles * (1 sec / 1000000 cycles) = 0.001s = 1 millisecond
+    T2PR = 0b1111101000;
+    // Enable overflow interrupts
+    TMR2IE = 1;
+    // Clear the timer
+    TMR2 = 0;
+    // Start the timer
+    TMR2ON = 1;
 }
 
 static volatile count_t g_s_count = 0;
@@ -28,7 +34,7 @@ void handleRTCTimerInterrupt(void)
 {
     // Real-time timer logic
 
-    if (!(TMR0IF && TMR0IE))
+    if (!(TMR2IF && TMR2IE))
         return;
 
     static count_t next_s = 1000;
@@ -41,10 +47,8 @@ void handleRTCTimerInterrupt(void)
         next_s = g_ms_count + 1000;
     }
 
-    // Preload timer
-    TMR0 = TMR0_PRELOAD;
     // Reset flag
-    TMR0IF = 0;
+    TMR2IF = 0;
 }
 
 count_t getSecondCount()
