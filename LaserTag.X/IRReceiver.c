@@ -6,267 +6,196 @@
 
 #include <stdbool.h>
 
-static void configureTimer1(void)
+/*
+ * HOW IT WORKS
+ *
+ * We're using a Signal Measurement Timer (SMT) module for timing incoming
+ * transmissions. We are using it in High and Low Measure Mode. We only have the
+ * falling edge interrupt enabled.
+ *
+ * On a rising edge:
+ *    - Automatic: SMTxTMR is latched into SMTxCPR
+ *    - Automatic: SMTxTMR is reset (but not stopped)
+ *
+ * On a falling edge:
+ *    - Automatic: SMTxTMR is latched into SMTxCPW
+ *    - Automatic: SMTxTMR is reset (but not stopped)
+ *    - Automatic: Sets SMTxPWAIF (interrupt)
+ *    - Interrupt handler: records SMTxCPW as the last HIGH pulse width and
+ *          SMTxCPR as the last LOW pulse width
+ *
+ * On SMTxTMR period match:
+ *    - Automatic: halt timer until reset (TODO: confirm that the automatic resets count)
+ *    - No interrupt
+ *
+ *
+ * Note some key behaviors:
+ *    - The timer never overflows because it automatically stops incrementing at
+ *          some high value. We only care about short pulses; we throw out all
+ *          long pulses.
+ *    - The interrupt handler only runs on falling edge events. This makes the
+ *          interrupt handler simpler and reduces the time wasted spinning the
+ *          interrupt code up and down.
+ */
+
+#define SMT1_CLOCK_FREQ 32000000
+// Ratio between SMT1 clock frequency and transmission carrier wave frequency.
+// Assumes they divide evenly
+#define SMT1_MOD_FREQ_RATIO ((SMT1_CLOCK_FREQ) / (MODULATION_FREQ))
+
+#define RB3_PPS 0x0B
+
+static void configureSMT1(void)
 {
-    //         +------- TMR1CS[1:0] - Set clock source: instruction clock (Fosc / 4)
-    //         | +----- T1CKPS[1:0] - Set prescaler 1:8
-    //         | |   +- TMR1ON - Enable Timer1
-    //        ||||   |
-    T1CON = 0b00110001;
-    // Enable overflow interrupts
-    TMR1IE = 1;
+    // Enable SMT1
+    SMT1EN = 1;
+    // Set mode to High and Low Measurement
+    SMT1CON1bits.MODE = 0b0011;
+
+    // Set clock source to HFINTOSC (32MHz). TODO verify 32MHz vs 16MHz
+    SMT1CLK = 0b011;
+
+    // Set signal source to pin B3
+    SMT1SIGPPS = RB3_PPS;
+    // Set pin B3 to input
+    TRISBbits.TRISB3 = 1;
+
+    // Halt on period match
+    SMT1STP = 1;
+    // Set period register to 2x the maximum valid pulse length
+    SMT1PR = 2 * (MAX_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO);
+    // Disable period match interrupts
+    SMT1IE = 0;
+
+    // Enable falling edge interrupts
+    SMT1PWAIE = 1;
 }
 
-void initializeReceiver()
+void initializeReceiver(void)
 {
-    OPTION_REGbits.INTEDG = 0; // External interrupts: start by looking for falling edges
-    INTCONbits.INTE = 1; // Enable external interrupts
-    TRISBbits.TRISB0 = 1; // B0 to input
-
-    configureTimer1();
+    configureSMT1();
 }
 
-// TMR1 clocks at (Fosc / 4) and is prescaled 8x. 32MHz / 4 / 8 = 1MHz
-#define TMR1_FREQ 1000000 // 1MHz
-// TMR1 period in microseconds. Assumes period is a whole integer
-#define TMR1_PERIOD_US (1000000 / (TMR1_FREQ))
+// Pulse lengths in terms of SMT1 clock cycles
+#define PULSE_GAP_LENGTH_SMT1_CYCLES  ((PULSE_GAP_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
+#define ZERO_PULSE_LENGTH_SMT1_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
+#define ONE_PULSE_LENGTH_SMT1_CYCLES  ((ONE_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
 
-// Pulse lengths in terms of TMR1 cycles
-#define PULSE_GAP_LENGTH_TMR1_CYCLES  ((PULSE_GAP_LENGTH_US) / (TMR1_PERIOD_US))
-#define ZERO_PULSE_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_US) / (TMR1_PERIOD_US))
-#define ONE_PULSE_LENGTH_TMR1_CYCLES  ((ONE_PULSE_LENGTH_US) / (TMR1_PERIOD_US))
-
-#define MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_US) / (TMR1_PERIOD_US))
+// Minimum gap between distinct transmissions in terms of SMT1 clock cycles
+#define MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
 
 // Pulses come out of the receiver longer than sent, and gaps come out shorter
 // than sent. Adjust lengths using this value to get accurate measurements.
 // Units are microseconds. Estimated from TSOP2240 datasheet, figure 4, then
 // adjusted empirically
 #define PULSE_LENGTH_BIAS_US 40
-// Units are TMR1 cycles
-#define PULSE_LENGTH_BIAS_TMR1_CYCLES ((PULSE_LENGTH_BIAS_US) / (TMR1_PERIOD_US))
+// Units are SMT1 clock cycles
+#define PULSE_LENGTH_BIAS_SMT1_CYCLES ((PULSE_LENGTH_BIAS_US) * (SMT1_CLOCK_FREQ) / 1000000)
 
 // Pulse lengths within this many microseconds of each other will be considered
 // equivalent
 #define PULSE_LENGTH_EPSILON_US 50
-// Units are TMR1 cycles
-#define PULSE_LENGTH_EPSILON_TMR1_CYCLES ((PULSE_LENGTH_EPSILON_US) / (TMR1_PERIOD_US))
+// Units are SMT1 clock cycles
+#define PULSE_LENGTH_EPSILON_SMT1_CYCLES ((PULSE_LENGTH_EPSILON_US) * (SMT1_CLOCK_FREQ) / 1000000)
 
-#define PULSE_GAP_UPPER_LENGTH_TMR1_CYCLES ((PULSE_GAP_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
-#define PULSE_GAP_LOWER_LENGTH_TMR1_CYCLES ((PULSE_GAP_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
-#define ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
-#define ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES ((ZERO_PULSE_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
-#define ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES ((ONE_PULSE_LENGTH_TMR1_CYCLES) + (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
-#define ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES ((ONE_PULSE_LENGTH_TMR1_CYCLES) - (PULSE_LENGTH_EPSILON_TMR1_CYCLES))
+#define PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES ((PULSE_GAP_LENGTH_SMT1_CYCLES) + (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
+#define PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES ((PULSE_GAP_LENGTH_SMT1_CYCLES) - (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
+#define ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES ((ZERO_PULSE_LENGTH_SMT1_CYCLES) + (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
+#define ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES ((ZERO_PULSE_LENGTH_SMT1_CYCLES) - (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
+#define ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES ((ONE_PULSE_LENGTH_SMT1_CYCLES) + (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
+#define ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES ((ONE_PULSE_LENGTH_SMT1_CYCLES) - (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
 
 #ifdef EVALUATE_CONSTANTS
 #include <stdint.h>
-const uint32_t TMR1_FREQ_eval = TMR1_FREQ;
-const uint8_t TMR1_PERIOD_US_eval = TMR1_PERIOD_US;
-const uint16_t PULSE_GAP_LENGTH_TMR1_CYCLES_eval = PULSE_GAP_LENGTH_TMR1_CYCLES;
-const uint16_t ZERO_PULSE_LENGTH_TMR1_CYCLES_eval = ZERO_PULSE_LENGTH_TMR1_CYCLES;
-const uint16_t ONE_PULSE_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_LENGTH_TMR1_CYCLES;
-const uint16_t MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES;
+const uint32_t SMT1_CLOCK_FREQ_eval = SMT1_CLOCK_FREQ;
+const uint8_t SMT1_MOD_FREQ_RATIO_eval = SMT1_MOD_FREQ_RATIO;
+const uint16_t PULSE_GAP_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LENGTH_SMT1_CYCLES;
+const uint16_t ZERO_PULSE_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LENGTH_SMT1_CYCLES;
+const uint16_t ONE_PULSE_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LENGTH_SMT1_CYCLES;
+const uint16_t MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES;
 const uint16_t PULSE_LENGTH_BIAS_US_eval = PULSE_LENGTH_BIAS_US;
-const uint16_t PULSE_LENGTH_BIAS_TMR1_CYCLES_eval = PULSE_LENGTH_BIAS_TMR1_CYCLES;
+const uint16_t PULSE_LENGTH_BIAS_SMT1_CYCLES_eval = PULSE_LENGTH_BIAS_SMT1_CYCLES;
 const uint16_t PULSE_LENGTH_EPSILON_US_eval = PULSE_LENGTH_EPSILON_US;
-const uint16_t PULSE_LENGTH_EPSILON_TMR1_CYCLES_eval = PULSE_LENGTH_EPSILON_TMR1_CYCLES;
-const uint16_t PULSE_GAP_UPPER_LENGTH_TMR1_CYCLES_eval = PULSE_GAP_UPPER_LENGTH_TMR1_CYCLES;
-const uint16_t PULSE_GAP_LOWER_LENGTH_TMR1_CYCLES_eval = PULSE_GAP_LOWER_LENGTH_TMR1_CYCLES;
-const uint16_t ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES_eval = ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES;
-const uint16_t ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES_eval = ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES;
-const uint16_t ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES;
-const uint16_t ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES;
+const uint16_t PULSE_LENGTH_EPSILON_SMT1_CYCLES_eval = PULSE_LENGTH_EPSILON_SMT1_CYCLES;
+const uint16_t PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES;
+const uint16_t PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES;
+const uint16_t ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES;
+const uint16_t ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES;
+const uint16_t ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES;
+const uint16_t ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES;
 #endif
 
-typedef uint16_t TMR1_t;
+// It's actually 24 bits, but stdint doesn't have that
+typedef uint32_t SMT1_t;
 
 static volatile bool g_transmission_received = false;
 static volatile uint16_t g_transmission_data = 0;
 
 #define RECORD_GAPS
 
-static volatile TMR1_t g_pulses_received[TRANSMISSION_LENGTH];
+static volatile SMT1_t g_pulses_received[TRANSMISSION_LENGTH];
 #ifdef RECORD_GAPS
-static volatile TMR1_t g_gaps_received[TRANSMISSION_LENGTH];
+static volatile SMT1_t g_gaps_received[TRANSMISSION_LENGTH];
 #endif
 
 void handleSignalReceptionInterrupt()
 {
     // Shot reception logic
 
-    /*
-     * HOW IT WORKS
-     *
-     * A shot transmission contains some number of bits. A long pulse is a 1,
-     * and a short pulse is a 0, and these pulses are separated by a
-     * known-length silence.
-     * 
-     * The current implementation uses the INT pin, a pin that can be set up to
-     * trigger interrupts on rising or falling edges. The interrupt handler
-     * reverses the edge on each call, allowing us to handle both rising and
-     * falling edges.
-     * 
-     * When we see any edge, we save the value of timer 1 and reset it to 0.
-     * Because we always reset it to 0, the value of the timer is the elapsed
-     * time since the last edge. We time both pulses and gaps this way.
-     *
-     * If a pulse is an expected length, we handle the bit and continue. If it
-     * is an unexpected length, we disable end-of-pulse interrupts. We handle
-     * data when we see the ends of pulses, so disabling those interrupts stops
-     * data reception. We also stop accepting data after receiving the expected
-     * number of bits from a transmission.
-     *
-     * Data reception resets upon observing a long silence.
-     */
-
-    // Stores whether an overflow has occurred during the pulse or gap currently
-    // being timed. There may be race conditions between TMR1IF and INTF.
-    static bool overflow = false;
-
-    if (TMR1IF && TMR1IE)
-    {
-        overflow = true;
-        TMR1IF = 0;
-    }
-
     // Data accumulator
     static uint16_t data = 0;
-    static uint8_t bit_count = 0;
+    static uint8_t bit_index = 0;
 
     static bool wait_for_silence = false;
-    
-    static bool next_edge_rising = false;
 
-    if (INTE && INTF)
+    if (!(SMT1PWAIE && SMT1PWAIF))
+        return;
+
+    // TODO consider picking a SMT1 frequency such that SMT1PR fits in 8 or 16
+    // bits, so that we can ignore some bits here to save space and time
+    SMT1_t gap_length = SMT1CPR + PULSE_LENGTH_BIAS_SMT1_CYCLES;
+    SMT1_t pulse_length = SMT1CPW - PULSE_LENGTH_BIAS_SMT1_CYCLES;
+
+    if (gap_length >= MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES)
     {
-        TMR1ON = 0;
-        TMR1_t pulse_width = TMR1;
-        TMR1 = 0;
-        TMR1ON = 1;
+        // Long silence, reset
+        data = 0;
+        bit_index = 0;
 
-        if (overflow)
-        {
-            // If we overflowed, set the pulse width to the maximum. We don't
-            // care about the exact duration if it is longer than a full Timer1
-            // overflow cycle
-            pulse_width = (~(TMR1_t)0);
-            overflow = false;
-        }
-        else if (next_edge_rising)
-        {
-            // Adjust pulse width
-            pulse_width -= PULSE_LENGTH_BIAS_TMR1_CYCLES;
-        }
-        else
-        {
-            // Adjust gap width
-            pulse_width += PULSE_LENGTH_BIAS_TMR1_CYCLES;
-        }
-   
-        if (next_edge_rising)
-        {
-            // Rising edge detected (end of pulse)
-
-            // Only process the pulse if we're not waiting for a long silence to
-            // reset.
-            if (!wait_for_silence)
-            {
-                g_pulses_received[bit_count] = pulse_width;
-
-                // Based on the TSOP2440 spec, we may want to measure pulse
-                // periods instead of high/low times. At low and high
-                // irradiances, high/low times become irregular, but the period
-                // remains consistent
-
-                // The application (laser tag) means we may well receive
-                // low-irradiance signals at times, e.g. at near-maximum optical
-                // range, or a near-miss shot
-
-                // Of particular concern is that around 0.1 mW/m^2 the high
-                // time drops by over 100us, which could cause a one to be
-                // interpreted as a zero
-
-                // We could measure period in addition to duty cycle, which
-                // might provide a way for a tagger to detect a near-hit. E.g.
-                // if the duty cycle is low, irradiance was low, indicating an
-                // off-target or distant shot
-
-                if (pulse_width > ZERO_PULSE_LOWER_LENGTH_TMR1_CYCLES
-                        && pulse_width < ZERO_PULSE_UPPER_LENGTH_TMR1_CYCLES)
-                {
-                    // Received a 0
-                    data <<= 1;
-                    bit_count++;
-                }
-                else if (pulse_width > ONE_PULSE_LOWER_LENGTH_TMR1_CYCLES
-                        && pulse_width < ONE_PULSE_UPPER_LENGTH_TMR1_CYCLES)
-                {
-                    // Received a 1
-                    data = (data << 1) | 1;
-                    bit_count++;
-                }
-                else
-                {
-                    // Invalid pulse width. Something has gone wrong, so we're
-                    // going to stop reading in data and wait until we see a
-                    // long period of silence
-
-#ifdef DEBUG
-                    bit_count++;
-#else
-                    wait_for_silence = true;
-#endif
-                }
-
-                if (bit_count == TRANSMISSION_LENGTH)
-                {
-                    g_transmission_received = true;
-                    g_transmission_data = data;
-
-                    // We could just reset the data accumulator here and let
-                    // more transmission data come through immediately, on the
-                    // off chance that the time between the end of one
-                    // transmission and the start of the next is less than the
-                    // silence reset, but instead we're just going to wait for
-                    // silence. This is more robust and has a negligible impact
-                    // on transmission throughput.
-                    wait_for_silence = true;
-                }
-            }
-        }
-        else // !next_edge_rising
-        {
-            // Falling edge detected (end of silence)
-
-#ifdef RECORD_GAPS
-            g_gaps_received[bit_count] = pulse_width;
-#endif
-
-#ifdef DEBUG
-            if (bit_count == SHOT_DATA_LENGTH)
-#else
-            if (pulse_width >= MIN_TRANSMISSION_GAP_LENGTH_TMR1_CYCLES)
-#endif
-            {
-                // Long silence. Reset
-                data = 0;
-                bit_count = 0;
-
-                wait_for_silence = false;
-            }
-        }
-        
-        next_edge_rising = !next_edge_rising;
-
-        // Toggle the edge we're looking for. This can cause spurious
-        // interrupts, so we disable them during the change.
-        INTE = 0;
-        // 1 to capture rising edges, 0 to capture falling edges
-        INTEDG = next_edge_rising;
-        INTF = 0;
-        INTE = 1;
+        wait_for_silence = false;
     }
+
+    if (wait_for_silence)
+        return;
+
+    g_pulses_received[bit_index] = pulse_length;
+#ifdef RECORD_GAPS
+    g_gaps_received[bit_index] = gap_length;
+#endif
+
+    if (pulse_length > ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES
+            && pulse_length < ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES)
+    {
+        // Received a 0
+        data <<= 1;
+        bit_index++;
+    }
+    else if (pulse_length > ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES
+            && pulse_length < ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES)
+    {
+        // Received a 1
+        data = (data << 1) | 1;
+        bit_index++;
+    }
+    else
+    {
+        // Invalid pulse width. Something has gone wrong, so we're going to stop
+        // reading in data and wait until we see a long period of silence
+
+        wait_for_silence = true;
+    }
+
+    SMT1PWAIF = 0;
 }
 
 bool tryGetTransmissionData(uint16_t* data_out)

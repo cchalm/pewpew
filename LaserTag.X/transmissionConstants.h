@@ -39,13 +39,16 @@
 #define ONE_PULSE_LENGTH_MOD_CYCLES  ((TSOP2240_PULSE_MIN_CYCLES) + 6)
 #define PULSE_GAP_LENGTH_MOD_CYCLES  (TSOP2240_GAP_MIN_CYCLES)
 
+#define MAX_PULSE_LENGTH_MOD_CYCLES (ONE_PULSE_LENGTH_MOD_CYCLES)
+
 // Pulse lengths in microseconds
 #define ZERO_PULSE_LENGTH_US ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
 #define ONE_PULSE_LENGTH_US  ((ONE_PULSE_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
 #define PULSE_GAP_LENGTH_US  ((PULSE_GAP_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
 
-// Minimum gap between distinct transmissions in microseconds. 150% of pulse gap
-#define MIN_TRANSMISSION_GAP_LENGTH_US ((PULSE_GAP_LENGTH_US) + ((PULSE_GAP_LENGTH_US) / 2))
+// Minimum gap between distinct transmissions in microseconds. 150% of pulse
+// gap, truncated to nearest integer number of cycles
+#define MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES (3 * (PULSE_GAP_LENGTH_MOD_CYCLES) / 2)
 
 /*
  * A zero pulse is 10 modulation cycles

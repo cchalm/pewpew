@@ -247,7 +247,7 @@ void shoot(void)
     bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
     if (transmissionInProgress)
         error(TRANSMISSION_OVERLAP);
-    
+
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
     uint16_t num_shots_missed = g_num_shots_sent - g_num_shots_received;
