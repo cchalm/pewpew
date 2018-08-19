@@ -17,7 +17,7 @@ void initializeRTC()
     // Select HFINTOSC (32MHz) as the timer 2 clock source
     T2CLKCON = 0b0011;
     // Set prescaler to 1:128
-    T2CONbits.CKPS = 0b110;
+    T2CONbits.CKPS = 0b111;
     // Set period register (the value after which the timer will overflow) to
     // achieve an overflow frequency of 1kHz (one overflow per millisecond)
     // (PR + 1) * (1/f) = t_overflow
