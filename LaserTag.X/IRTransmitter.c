@@ -39,43 +39,60 @@
  * 4 clock source to TxCKIPPS.
  */
 
-static void configureTimer6()
+static void configureTimer6(void)
 {
     // Timer 6 is used by PWM6, which is used to construct the modulated high
     // carrier signal
-    // Set clock source to Fosc (32MHz)
-    T6CLKCON = 0b0010;
-    //        +------- Turn TMR6 off for now, we'll turn it on when we transmit
-    //        | +----- Set prescaler to 1:1
-    //        | |   +- Set postscaler to 1:1
-    //        ||-||--|
-    T6CON = 0b00000000;
+
+    // Set clock source to Fosc / 4 (8MHz). !!This is the only valid clock
+    // source for PWM!!
+    T6CLK = 0b0001;
 
     // Set timer 6 period such that the PWM frequency (f) is 40kHz
     // T6PR = -1 + Fosc / (f * 4 * prescale)
     //      = -1 + 32MHz / (40kHz * 4 * 1)
     //      = 199
-    T6PR = 0b11000111;
+    T6PR = 199;
+
+    // No interrupts from this timer
+    TMR6IE = 0;
 }
 
 static void configurePWM6(void)
 {
     // Set PWM6 timer source to TMR6
     CCPTMRS1bits.P6TSEL = 0b11;
-    // Set duty cycle to half of the Timer 6 period (200 / 2 = 100)
-    PWM6DCH = 0b1100100;
-    PWM6DCL = 0b00;
+    // Set duty cycle register
+    // on:off ratio = PWM6DC / (4 * (T6PR + 1))
+    // PWM6DC = 0.50 * (4 * 200) = 400
+    // NOTE: the 6 LSBs are dummies
+    PWM6DC = 400 << 6;
+
+    // Internally supplied to DSM
+
+#define OUTPUT_PWM_ON_A3
+
+#ifdef OUTPUT_PWM_ON_A3
+    RA3PPS = 0x0E;
+    TRISA3 = 0;
+#endif
 }
 
 static void configureTimer5(void)
 {
+    // Timer5 is used by the CCP module to time output pulses
+
     // Set prescaler to 1:1
     T5CONbits.CKPS = 0b00;
-    // Turn off TMR5 for now. We'll turn it on when we shoot
-    T5CONbits.ON = 0;
-    // Set TMR5 clock source as HFINTOSC (32MHz)
-    T5CLK = 0b0011;
+    // Set clock source to Fosc / 4 (8MHz). !!This is the only valid clock
+    // source for Compare!!
+    T5CLK = 0b0001;
+
+    // No interrupts from this timer
+    TMR6IE = 0;
 }
+
+#define CCP5_OUT_PPS 0x0D
 
 static void configureCCP5(void)
 {
@@ -83,10 +100,15 @@ static void configureCCP5(void)
     CCP5CONbits.CCP5MODE = 0b0001;
     // Set CCP5 timer source to TMR5
     CCPTMRS1bits.C5TSEL = 0b11;
+
+    // Set CCP5 output pin to A2
+    RA2PPS = CCP5_OUT_PPS;
+
+    // Enable CCP5 interrupts
+    CCP5IE = 1;
 }
 
 #define DSM_OUT_PPS 0x1B
-#define CCP5_OUT_PPS 0x0D
 
 #define A1_IN_PPS 0x01
 
@@ -113,21 +135,13 @@ static void configureDSM(void)
 
     // Select A0 as the output pin for the DSM
     RA0PPS = DSM_OUT_PPS;
-    TRISA0 = 0; // A0 to output
+
+    // Enable A0 output driver for DSM
+    TRISA0 = 0;
 }
 
-void initializeTransmitter()
-{
-    // DSM uses PWM6 and CCP5. PWM6 uses TMR6. CCP5 uses TMR4
-    configureTimer6();
-    configurePWM6();
-    configureTimer5();
-    configureCCP5();
-    configureDSM();
-}
-
-// TMR5 clocks at 32MHz (HFINTOSC) and is prescaled 1x
-#define TMR5_FREQ 32000000
+// TMR5 clocks at 8MHz (Fosc/4) and is prescaled 1x
+#define TMR5_FREQ 8000000
 
 // Ratio of TMR5 clock frequency to the carrier signal modulation frequency.
 // Assumes they divide evenly
@@ -150,14 +164,76 @@ void initializeTransmitter()
 #define ZERO_PULSE_LENGTH_TMR5_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
 #define ONE_PULSE_LENGTH_TMR5_CYCLES ((ONE_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
 
-#ifdef EVALUATE_CONSTANTS
-#include <stdint.h>
-const uint32_t TMR5_FREQ_eval = TMR5_FREQ;
-const uint16_t TMR5_MOD_CLOCK_RATIO_eval = TMR5_MOD_CLOCK_RATIO;
-const uint16_t PULSE_GAP_LENGTH_TMR2_CYCLES_eval = PULSE_GAP_LENGTH_TMR2_CYCLES;
-const uint16_t ZERO_PULSE_LENGTH_TMR2_CYCLES_eval = ZERO_PULSE_LENGTH_TMR2_CYCLES;
-const uint16_t ONE_PULSE_LENGTH_TMR2_CYCLES_eval = ONE_PULSE_LENGTH_TMR2_CYCLES;
-#endif
+#define MAX_PULSE_LENGTH_TMR5_CYCLES ((MAX_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
+
+#define TMR5_PRELOAD MAX_PULSE_LENGTH_TMR5_CYCLES
+
+// Number of TMR5 cycles in a single period of the PWM carrier signal
+#define MOD_PERIOD_TMR5_CYCLES (TMR5_MOD_CLOCK_RATIO)
+// Preload the CCP module such that a match occurs after a delay of one PWM
+// cycle, to make sure the PWM signal has time to spin up
+#define CCP5_PRELOAD ((TMR5_PRELOAD) + (MOD_PERIOD_TMR5_CYCLES))
+
+static void enableTransmissionModules(void)
+{
+    // Note that we don't care about interrupts with either timer, so we don't
+    // have to clear their interrupt flags
+
+    // Clear PWM timer register
+    TMR6 = 0;
+    // Enable PWM timer
+    TMR6ON = 1;
+
+    // Enable PWM
+    PWM6EN = 1;
+
+    // Preload the CCP timer register. This is to allow us to trigger a *single*
+    // Compare event immediately. If we cleared the timer and then compared on
+    // zero, the compare would trigger repeatedly because the timer is
+    // automatically cleared on match
+    TMR5 = TMR5_PRELOAD;
+    // Enable CCP timer
+    TMR5ON = 1;
+
+    // Set compare target to force a match after a delay long enough to allow
+    // the PWM signal to spin up
+    CCPR5 = CCP5_PRELOAD;
+    // Enable CCP5
+    CCP5EN = 1;
+    // Enable A2 output driver for CCP5
+    TRISA2 = 0;
+}
+
+static void disableTransmissionModules(void)
+{
+    // Disable A2 output driver for CCP5
+    TRISA2 = 0;
+    // Disable CCP
+    CCP5EN = 0;
+
+    // Disable CCP timer
+    TMR5ON = 0;
+
+    // Disable PWM
+    PWM6EN = 0;
+
+    // Disable PWM timer
+    TMR6ON = 0;
+}
+
+void initializeTransmitter()
+{
+    // Disable all modules before configuration. We'll turn them all on when we
+    // transmit
+    disableTransmissionModules();
+
+    // DSM uses PWM6 and CCP5. PWM6 uses TMR6. CCP5 uses TMR4
+    configureTimer6();
+    configurePWM6();
+    configureTimer5();
+    configureCCP5();
+    configureDSM();
+}
 
 typedef uint16_t TMR5_t;
 
@@ -195,14 +271,7 @@ void handleTransmissionTimingInterrupt()
         {
             // This is the final falling edge of the shot
 
-            // Disable CCP
-            CCP5EN = 0;
-            // Turn off CCP timer
-            TMR5ON = 0;
-            // Disable PWM
-            PWM6EN = 0;
-            // Disable PWM timer
-            TMR6ON = 0;
+            disableTransmissionModules();
 
             // Reset the data index
             transmission_data_index = TRANSMISSION_LENGTH;
@@ -230,18 +299,20 @@ bool transmitAsync(uint16_t data)
     uint8_t parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
     g_transmission_data = (data << NUM_PARITY_BITS) | parity_bits;
 
-    // Clear and enable PWM timer
-    TMR6 = 0;
-    TMR6ON = 1;
-    // Enable PWM
-    PWM6EN = 1;
-    // Set compare target to 0 to immediately capture
-    CCPR5 = 0;
-    // Clear and enable CCP timer
-    TMR5 = 0;
-    TMR5ON = 1;
-    // Enable CCP5
-    CCP5EN = 1;
+    enableTransmissionModules();
 
     return true;
 }
+
+#ifdef EVALUATE_CONSTANTS
+#include <stdint.h>
+const uint32_t TMR5_FREQ_eval = TMR5_FREQ;
+const uint16_t TMR5_MOD_CLOCK_RATIO_eval = TMR5_MOD_CLOCK_RATIO;
+const uint16_t PULSE_GAP_LENGTH_TMR2_CYCLES_eval = PULSE_GAP_LENGTH_TMR2_CYCLES;
+const uint16_t ZERO_PULSE_LENGTH_TMR2_CYCLES_eval = ZERO_PULSE_LENGTH_TMR2_CYCLES;
+const uint16_t ONE_PULSE_LENGTH_TMR2_CYCLES_eval = ONE_PULSE_LENGTH_TMR2_CYCLES;
+const uint16_t MAX_PULSE_LENGTH_TMR5_CYCLES_eval = MAX_PULSE_LENGTH_TMR5_CYCLES;
+const uint16_t TMR5_PRELOAD_eval = TMR5_PRELOAD;
+const uint16_t MOD_PERIOD_TMR5_CYCLES_eval = MOD_PERIOD_TMR5_CYCLES;
+const uint16_t CCP5_PRELOAD_eval = CCP5_PRELOAD;
+#endif

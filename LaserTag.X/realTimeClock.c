@@ -12,8 +12,9 @@
 
 void initializeRTC()
 {
-    // TODO verify that HFINTOSC is 32MHz. That's the frequency we selected for
-    // it in the configuration words, but the datasheet says 16MHz on page 429.
+    // Note that the datasheet says HFINTOSC (16MHz) on page 429. We selected
+    // the HFINTOSC frequency as 32MHz with the OSCFRQ register though, and
+    // observation confirms 32MHz.
     // Select HFINTOSC (32MHz) as the timer 2 clock source
     T2CLKCON = 0b0011;
     // Set prescaler to 1:128
@@ -23,7 +24,7 @@ void initializeRTC()
     // (PR + 1) * (1/f) = t_overflow
     // PR = f * t_overflow - 1
     // PR = (32MHz / 128) * (0.001) - 1 = 249
-    T2PR = 0b11111001;
+    T2PR = 249;
     // Enable overflow interrupts
     TMR2IE = 1;
     // Clear the timer

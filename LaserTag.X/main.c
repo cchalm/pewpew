@@ -242,7 +242,7 @@ void setHealthDisplay(uint8_t value)
 void shoot(void)
 {
     g_shot_data_to_send = (g_shot_data_to_send >> 1) |
-            ((TMR0 % 2) << (TRANSMISSION_DATA_LENGTH - 1));
+            ((abs(rand())%2) << (TRANSMISSION_DATA_LENGTH - 1));
 
     bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
     if (transmissionInProgress)
