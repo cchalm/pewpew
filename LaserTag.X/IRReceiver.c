@@ -47,18 +47,31 @@
 
 static void configureSMT1(void)
 {
+    // Don't start incrementing the timer yet
+    SMT1GO = 0;
     // Enable SMT1
     SMT1EN = 1;
     // Set mode to High and Low Measurement
     SMT1CON1bits.MODE = 0b0011;
+    // Enable repeated acquisitions, i.e. the timer doesn't stop when a data
+    // acquisition is made
+    SMT1REPEAT = 1;
 
-    // Set clock source to HFINTOSC (32MHz). TODO verify 32MHz vs 16MHz
-    SMT1CLK = 0b011;
+    // Set clock source to HFINTOSC (32MHz)
+    // Note that the datasheet says HFINTOSC (16MHz) on page 535. We selected
+    // the HFINTOSC frequency as 32MHz with the OSCFRQ register though, and
+    // observation confirms 32MHz
+    SMT1CLK = 0b010;
+
+    // Signal input source: pin selected by SMT1SIGPPS
+    SMT1SIG = 0b00000;
 
     // Set signal source to pin B3
     SMT1SIGPPS = RB3_PPS;
     // Set pin B3 to input
-    TRISBbits.TRISB3 = 1;
+    TRISB3 = 1;
+    // Set signal source polarity to active-low
+    SMT1SPOL = 1;
 
     // Halt on period match
     SMT1STP = 1;
@@ -67,8 +80,13 @@ static void configureSMT1(void)
     // Disable period match interrupts
     SMT1IE = 0;
 
-    // Enable falling edge interrupts
+    // Enable falling edge (end of pulse) interrupts
     SMT1PWAIE = 1;
+
+    // Clear the timer register
+    SMT1TMR = 0;
+    // Start SMT
+    SMT1GO = 1;
 }
 
 void initializeReceiver(void)
@@ -104,26 +122,6 @@ void initializeReceiver(void)
 #define ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES ((ZERO_PULSE_LENGTH_SMT1_CYCLES) - (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
 #define ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES ((ONE_PULSE_LENGTH_SMT1_CYCLES) + (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
 #define ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES ((ONE_PULSE_LENGTH_SMT1_CYCLES) - (PULSE_LENGTH_EPSILON_SMT1_CYCLES))
-
-#ifdef EVALUATE_CONSTANTS
-#include <stdint.h>
-const uint32_t SMT1_CLOCK_FREQ_eval = SMT1_CLOCK_FREQ;
-const uint8_t SMT1_MOD_FREQ_RATIO_eval = SMT1_MOD_FREQ_RATIO;
-const uint16_t PULSE_GAP_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LENGTH_SMT1_CYCLES;
-const uint16_t ZERO_PULSE_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LENGTH_SMT1_CYCLES;
-const uint16_t ONE_PULSE_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LENGTH_SMT1_CYCLES;
-const uint16_t MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES;
-const uint16_t PULSE_LENGTH_BIAS_US_eval = PULSE_LENGTH_BIAS_US;
-const uint16_t PULSE_LENGTH_BIAS_SMT1_CYCLES_eval = PULSE_LENGTH_BIAS_SMT1_CYCLES;
-const uint16_t PULSE_LENGTH_EPSILON_US_eval = PULSE_LENGTH_EPSILON_US;
-const uint16_t PULSE_LENGTH_EPSILON_SMT1_CYCLES_eval = PULSE_LENGTH_EPSILON_SMT1_CYCLES;
-const uint16_t PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES;
-const uint16_t PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES;
-const uint16_t ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES;
-const uint16_t ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES;
-const uint16_t ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES;
-const uint16_t ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES;
-#endif
 
 // It's actually 24 bits, but stdint doesn't have that
 typedef uint32_t SMT1_t;
@@ -165,34 +163,44 @@ void handleSignalReceptionInterrupt()
         wait_for_silence = false;
     }
 
-    if (wait_for_silence)
-        return;
-
-    g_pulses_received[bit_index] = pulse_length;
+    if (!wait_for_silence)
+    {
+        g_pulses_received[bit_index] = pulse_length;
 #ifdef RECORD_GAPS
-    g_gaps_received[bit_index] = gap_length;
+        g_gaps_received[bit_index] = gap_length;
 #endif
 
-    if (pulse_length > ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES
-            && pulse_length < ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES)
-    {
-        // Received a 0
-        data <<= 1;
-        bit_index++;
-    }
-    else if (pulse_length > ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES
-            && pulse_length < ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES)
-    {
-        // Received a 1
-        data = (data << 1) | 1;
-        bit_index++;
-    }
-    else
-    {
-        // Invalid pulse width. Something has gone wrong, so we're going to stop
-        // reading in data and wait until we see a long period of silence
+        if (pulse_length > ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES
+                && pulse_length < ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES)
+        {
+            // Received a 0
+            data <<= 1;
+            bit_index++;
+        }
+        else if (pulse_length > ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES
+                && pulse_length < ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES)
+        {
+            // Received a 1
+            data = (data << 1) | 1;
+            bit_index++;
+        }
+        else
+        {
+            // Invalid pulse width. Something has gone wrong, so we're going to stop
+            // reading in data and wait until we see a long period of silence
 
-        wait_for_silence = true;
+            wait_for_silence = true;
+        }
+
+        if (bit_index == TRANSMISSION_LENGTH)
+        {
+            g_transmission_data = data;
+            g_transmission_received = true;
+
+            // Wait for a reset gap before attempting to receive another
+            // transmission
+            wait_for_silence = true;
+        }
     }
 
     SMT1PWAIF = 0;
@@ -224,3 +232,23 @@ bool tryGetTransmissionData(uint16_t* data_out)
     return parity_matches;
 }
 
+#define EVALUATE_CONSTANTS
+#ifdef EVALUATE_CONSTANTS
+#include <stdint.h>
+const volatile uint32_t SMT1_CLOCK_FREQ_eval = SMT1_CLOCK_FREQ;
+const volatile uint16_t SMT1_MOD_FREQ_RATIO_eval = SMT1_MOD_FREQ_RATIO;
+const volatile uint16_t PULSE_GAP_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ZERO_PULSE_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ONE_PULSE_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LENGTH_SMT1_CYCLES;
+const volatile uint16_t MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES;
+const volatile uint16_t PULSE_LENGTH_BIAS_US_eval = PULSE_LENGTH_BIAS_US;
+const volatile uint16_t PULSE_LENGTH_BIAS_SMT1_CYCLES_eval = PULSE_LENGTH_BIAS_SMT1_CYCLES;
+const volatile uint16_t PULSE_LENGTH_EPSILON_US_eval = PULSE_LENGTH_EPSILON_US;
+const volatile uint16_t PULSE_LENGTH_EPSILON_SMT1_CYCLES_eval = PULSE_LENGTH_EPSILON_SMT1_CYCLES;
+const volatile uint16_t PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_UPPER_LENGTH_SMT1_CYCLES;
+const volatile uint16_t PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES_eval = PULSE_GAP_LOWER_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_UPPER_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ZERO_PULSE_LOWER_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_UPPER_LENGTH_SMT1_CYCLES;
+const volatile uint16_t ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES_eval = ONE_PULSE_LOWER_LENGTH_SMT1_CYCLES;
+#endif

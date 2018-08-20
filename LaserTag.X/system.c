@@ -27,7 +27,7 @@ void configureSystem(void)
     ANSELD = 0;
     ANSELE = 0;
     // Set B4 - B5 to output
-    TRISB &= ~0b111110;
+    TRISB &= ~0b110000;
     // Set D0 - D1 to input
     TRISD |= 0b11;
 
