@@ -52,7 +52,7 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 70
+#define FIRE_RATE 100
 // Delay between shots in ms
 #define SHOT_DELAY_MS 1000/(FIRE_RATE)
 #define FULL_AUTO true
@@ -65,7 +65,7 @@
 #define COUNT_DROPPED_TRANSMISSIONS
 #define DISPLAY_DROP_COUNT
 #undef DISPLAY_RECEIVED_DATA
-#define RANDOMIZE_SHOT_DELAY
+#undef RANDOMIZE_SHOT_DELAY
 
 #ifdef RANDOMIZE_SHOT_DELAY
 #define MIN_SHOT_DELAY_MS 50

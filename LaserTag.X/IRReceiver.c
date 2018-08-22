@@ -104,15 +104,15 @@ void initializeReceiver(void)
 
 // Pulses come out of the receiver longer than sent, and gaps come out shorter
 // than sent. Adjust lengths using this value to get accurate measurements.
-// Units are microseconds. Estimated from TSOP2240 datasheet, figure 4, then
+// Units are microseconds. Estimated from TSOP13556 datasheet, figure 4, then
 // adjusted empirically
-#define PULSE_LENGTH_BIAS_US 40
+#define PULSE_LENGTH_BIAS_US 20
 // Units are SMT1 clock cycles
 #define PULSE_LENGTH_BIAS_SMT1_CYCLES ((PULSE_LENGTH_BIAS_US) * (SMT1_CLOCK_FREQ) / 1000000)
 
 // Pulse lengths within this many microseconds of each other will be considered
 // equivalent
-#define PULSE_LENGTH_EPSILON_US 50
+#define PULSE_LENGTH_EPSILON_US 20
 // Units are SMT1 clock cycles
 #define PULSE_LENGTH_EPSILON_SMT1_CYCLES ((PULSE_LENGTH_EPSILON_US) * (SMT1_CLOCK_FREQ) / 1000000)
 

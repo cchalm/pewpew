@@ -59,11 +59,11 @@ static void configureTimer6(void)
     // source for PWM!!
     T6CLK = 0b0001;
 
-    // Set timer 6 period such that the PWM frequency (f) is 40kHz
+    // Set timer 6 period such that the PWM frequency (f) is 56kHz
     // T6PR = -1 + Fosc / (f * 4 * prescale)
-    //      = -1 + 32MHz / (40kHz * 4 * 1)
-    //      = 199
-    T6PR = 199;
+    //      = -1 + 32MHz / (56kHz * 4 * 1)
+    //      = 141.9
+    T6PR = 142;
 
     // No interrupts from this timer
     TMR6IE = 0;
@@ -77,9 +77,9 @@ static void configurePWM7(void)
     CCPTMRS1bits.P7TSEL = 0b11;
     // Set duty cycle register
     // on:off ratio = PWMxDC / (4 * (T6PR + 1))
-    // PWMxDC = 0.50 * (4 * 200) = 400
+    // PWMxDC = 0.50 * (4 * (142 + 1)) = 286
     // NOTE: the 6 LSBs are dummies
-    PWM7DC = 400 << 6;
+    PWM7DC = 286 << 6;
 
     // Internally supplied to DSM
 
