@@ -10,7 +10,7 @@
 /*
  * HOW IT WORKS
  *
- * There are a whopping five modules involved in transmitting, compared to the
+ * There are a whopping six modules involved in transmitting, compared to the
  * two used in past iterations. We may remove modules in the future if we find
  * them to be too much of a maintenance or power consumption cost. The advantage
  * of using all these modules is that it makes the output timing precise enough
@@ -24,24 +24,35 @@
  *
  * The carrier signal is produced by a PWM module, which uses an 8-bit timer.
  *
- * The modulation signal is produced by a CCP module in Compare mode. The CCP
- * module uses a 16-bit timer. It is configured to toggle the output, clear the
- * timer, and trigger an interrupt when the 16-bit CCPR register matches the
- * 16-bit timer register. In the interrupt handler we set CCPR for the next
- * transition. We assume the interrupt handler will run before the timer reaches
- * an applicable CCPR value.
+ * The modulation signal is produced by a CLC module that ORs two inputs: one is
+ * software-controlled, the other is the output of the CCP module. The
+ * software-controlled input is LOW the vast majority of the time; the CCP
+ * output is the primary modulation signal driver. See the CCP interrupt handler
+ * for details.
  *
- * To start a transmission, we clear the timer and set CCPR to 0 to immediately
- * trigger the Compare event.
+ * The modulation signal is (mostly) driven by a CCP module in Compare mode. The
+ * CCP module uses a 16-bit timer. It is configured to SET or CLEAR the output
+ * and generate an interrupt when the 16-bit CCPR register matches the 16-bit
+ * timer register. In the interrupt handler we toggle the set/clear behavior and
+ * add the next desired period to the CCPR register.
  *
- * TODO look into using the PWM itself as the modulation signal timer source,
- * e.g. TxCKIPPS. Try setting PWM6OUT and T4IN to the same pin and setting timer
- * 4 clock source to TxCKIPPS.
+ * We cannot use the built-in output toggle option of the CCP module because the
+ * toggle seems to clock on the instruction clock regardless of our choice of
+ * timer source for the CCP module. If we choose a timer with a low-frequency
+ * clock source, this quirk makes the output oscillate instead of toggling.
+ *
+ * The CCP module is set up to work with a variety of clock sources up to
+ * Fosc/4, but the PWM signal is convenient because that is the signal we're
+ * counting pulses of.
+ *
+ * To start a transmission we clear the CCP timer's register and set the CCP
+ * register to a preload value to manually trigger a Compare event after that
+ * many cycles.
  */
 
 static void configureTimer6(void)
 {
-    // Timer 6 is used by PWM6, which is used to construct the modulated high
+    // Timer 6 is used by PWM7, which is used to construct the modulated high
     // carrier signal
 
     // Set clock source to Fosc / 4 (8MHz). !!This is the only valid clock
@@ -58,25 +69,28 @@ static void configureTimer6(void)
     TMR6IE = 0;
 }
 
-static void configurePWM6(void)
+#define PWM7_OUT_PPS 0x0F
+
+static void configurePWM7(void)
 {
-    // Set PWM6 timer source to TMR6
-    CCPTMRS1bits.P6TSEL = 0b11;
+    // Set PWM7 timer source to TMR6
+    CCPTMRS1bits.P7TSEL = 0b11;
     // Set duty cycle register
-    // on:off ratio = PWM6DC / (4 * (T6PR + 1))
-    // PWM6DC = 0.50 * (4 * 200) = 400
+    // on:off ratio = PWMxDC / (4 * (T6PR + 1))
+    // PWMxDC = 0.50 * (4 * 200) = 400
     // NOTE: the 6 LSBs are dummies
-    PWM6DC = 400 << 6;
+    PWM7DC = 400 << 6;
 
     // Internally supplied to DSM
 
-#define OUTPUT_PWM_ON_A3
-
-#ifdef OUTPUT_PWM_ON_A3
-    RA3PPS = 0x0E;
-    TRISA3 = 0;
-#endif
+    // Externally supplied to TMR5 via C0
+    RC0PPS = PWM7_OUT_PPS;
+    // Enable C0 output driver. We're using C0 is both an output and an input,
+    // and in output mode it can do both
+    TRISC0 = 0;
 }
+
+#define RC0_IN_PPS 0x10
 
 static void configureTimer5(void)
 {
@@ -84,25 +98,71 @@ static void configureTimer5(void)
 
     // Set prescaler to 1:1
     T5CONbits.CKPS = 0b00;
-    // Set clock source to Fosc / 4 (8MHz). !!This is the only valid clock
-    // source for Compare!!
-    T5CLK = 0b0001;
+    // Set clock source to external pin
+    T5CLK = 0b0000;
+    // Configure C0 as the clock source pin, we will get the PWM signal from
+    // this pin
+    T5CKIPPS = RC0_IN_PPS;
+    // DO NOT configure C0 as an input. We need the output driver to be active
+    // because we are outputting the PWM signal to the pin. A pin configured
+    // as an output can still be read. The PWM configure function will enable
+    // the output driver
+}
 
-    // No interrupts from this timer
-    TMR6IE = 0;
+#define CCP5_HIGH_OVERRIDE_LAT LATA6
+
+#define CLC1_OUT_PPS 0x01
+
+#define CLC_INPUT_CCP5 0b010111
+#define CLC_INPUT_CLCIN0PPS 0b000000
+#define CLC_LOGIC_AND 0b010
+
+#define A6_IN_PPS 0x06
+
+static void configureCLC1(void)
+{
+    // Set CLC1 output pin to A2
+    RA2PPS = CLC1_OUT_PPS;
+    // Enable A2 output driver
+    TRISA2 = 0;
+
+    // Two inputs: CCP5 output, and a PPS-selected pin
+    CLC1SEL0 = CLC_INPUT_CCP5;
+    CLC1SEL1 = CLC_INPUT_CLCIN0PPS;
+
+    // Select input pin A6
+    CLCIN0PPS = A6_IN_PPS;
+    // Set A6 as an OUTPUT. We will write to and read from this pin, and in
+    // output mode it can do both
+    TRISA6 = 0;
+
+    // Gate 0 ORs inputs 0 and 1
+    CLC1GLS0 = 0b00001010;
+    LC1G1POL = 0;
+
+    // Gates 1, 2, and 3 always output HIGH
+    CLC1GLS1 = 0;
+    LC1G2POL = 1;
+    CLC1GLS2 = 0;
+    LC1G3POL = 1;
+    CLC1GLS3 = 0;
+    LC1G4POL = 1;
+
+    // Logic function is 4-input AND
+    CLC1CONbits.LC1MODE = CLC_LOGIC_AND;
+
+    // Enable the logic circuit
+    LC1EN = 1;
 }
 
 #define CCP5_OUT_PPS 0x0D
 
 static void configureCCP5(void)
 {
-    // Set CCP5 to Compare. Toggle output on match, and clear TMR5
-    CCP5CONbits.CCP5MODE = 0b0001;
+    // Don't configure the CCP mode yet, we'll do that when we enable the module
+
     // Set CCP5 timer source to TMR5
     CCPTMRS1bits.C5TSEL = 0b11;
-
-    // Set CCP5 output pin to A2
-    RA2PPS = CCP5_OUT_PPS;
 
     // Enable CCP5 interrupts
     CCP5IE = 1;
@@ -120,8 +180,8 @@ static void configureDSM(void)
     // Set the modulation source to the external MDMSRC pin, whose location is
     // configured by MDSRCPPS
     MDSRC = 0b00000;
-    // Set carrier high signal source to PWM6_out
-    MDCARH = 0b1001;
+    // Set carrier high signal source to PWM7_out
+    MDCARH = 0b1010;
     // Set carrier low signal source to Vss. There doesn't seem to be a way to
     // do this properly, so for now we're using the output of the NCO module,
     // because it should be unused. To be safe, we're disabling the module too.
@@ -140,8 +200,8 @@ static void configureDSM(void)
     TRISA0 = 0;
 }
 
-// TMR5 clocks at 8MHz (Fosc/4) and is prescaled 1x
-#define TMR5_FREQ 8000000
+// TMR5 clocks at the carrier signal frequency
+#define TMR5_FREQ (MODULATION_FREQ)
 
 // Ratio of TMR5 clock frequency to the carrier signal modulation frequency.
 // Assumes they divide evenly
@@ -170,9 +230,7 @@ static void configureDSM(void)
 
 // Number of TMR5 cycles in a single period of the PWM carrier signal
 #define MOD_PERIOD_TMR5_CYCLES (TMR5_MOD_CLOCK_RATIO)
-// Preload the CCP module such that a match occurs after a delay of one PWM
-// cycle, to make sure the PWM signal has time to spin up
-#define CCP5_PRELOAD ((TMR5_PRELOAD) + (MOD_PERIOD_TMR5_CYCLES))
+#define CCP5_PRELOAD (MOD_PERIOD_TMR5_CYCLES)
 
 static void enableTransmissionModules(void)
 {
@@ -185,29 +243,30 @@ static void enableTransmissionModules(void)
     TMR6ON = 1;
 
     // Enable PWM
-    PWM6EN = 1;
+    PWM7EN = 1;
 
-    // Preload the CCP timer register. This is to allow us to trigger a *single*
-    // Compare event immediately. If we cleared the timer and then compared on
-    // zero, the compare would trigger repeatedly because the timer is
-    // automatically cleared on match
-    TMR5 = TMR5_PRELOAD;
+    // Clear the CCP timer register
+    TMR5 = 0;
     // Enable CCP timer
     TMR5ON = 1;
 
+    // Configure compare module to set the output on match
+    CCP5CONbits.CCP5MODE = 0b1000;
     // Set compare target to force a match after a delay long enough to allow
     // the PWM signal to spin up
     CCPR5 = CCP5_PRELOAD;
     // Enable CCP5
     CCP5EN = 1;
-    // Enable A2 output driver for CCP5
-    TRISA2 = 0;
+
+    // Enable CLC1
+    LC1EN = 1;
 }
 
 static void disableTransmissionModules(void)
 {
-    // Disable A2 output driver for CCP5
-    TRISA2 = 0;
+    // Disable CLC1
+    LC1EN = 0;
+
     // Disable CCP
     CCP5EN = 0;
 
@@ -215,7 +274,7 @@ static void disableTransmissionModules(void)
     TMR5ON = 0;
 
     // Disable PWM
-    PWM6EN = 0;
+    PWM7EN = 0;
 
     // Disable PWM timer
     TMR6ON = 0;
@@ -227,10 +286,11 @@ void initializeTransmitter()
     // transmit
     disableTransmissionModules();
 
-    // DSM uses PWM6 and CCP5. PWM6 uses TMR6. CCP5 uses TMR4
+    // DSM uses PWM7 and CLC1.  PWM7 uses TMR6. CLC1 uses CCP5. CCP5 uses TMR5
     configureTimer6();
-    configurePWM6();
+    configurePWM7();
     configureTimer5();
+    configureCLC1();
     configureCCP5();
     configureDSM();
 }
@@ -251,20 +311,27 @@ void handleTransmissionTimingInterrupt()
 
     if (next_edge_rising)
     {
-        // Output is now HIGH
-
+        // Output is now HIGH. Next will be low
         next_edge_rising = false;
+
         transmission_data_index--;
 
         TMR5_t pulse_width =
                 ((g_transmission_data >> transmission_data_index) & 1) ?
                     ONE_PULSE_LENGTH_TMR5_CYCLES : ZERO_PULSE_LENGTH_TMR5_CYCLES;
-        CCPR5 = pulse_width;
+
+        CCPR5 += pulse_width;
+
+        // Configure the CCP module to clear the output on the next match.
+        // Override the output to hide the blip that occurs when we change the
+        // CCP mode
+        CCP5_HIGH_OVERRIDE_LAT = 1;
+        CCP5CONbits.CCP5MODE = 0b1001;
+        CCP5_HIGH_OVERRIDE_LAT = 0;
     }
     else // !next_edge_rising
     {
-        // Output is now LOW
-
+        // Output is now LOW. Next will be high
         next_edge_rising = true;
 
         if (transmission_data_index == 0)
@@ -280,8 +347,14 @@ void handleTransmissionTimingInterrupt()
         }
         else
         {
-            CCPR5 = PULSE_GAP_LENGTH_TMR5_CYCLES;
+            CCPR5 += PULSE_GAP_LENGTH_TMR5_CYCLES;
         }
+
+        // Configure the CCP module to set the output on the next match. Disable
+        // it during the change to avoid an errant high pulse
+        CCP5EN = 0;
+        CCP5CONbits.CCP5MODE = 0b1000;
+        CCP5EN = 1;
     }
 
     // Reset flag
