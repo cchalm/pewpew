@@ -11,6 +11,7 @@
       <itemPath>IRReceiver.h</itemPath>
       <itemPath>realTimeClock.h</itemPath>
       <itemPath>bitwiseUtils.h</itemPath>
+      <itemPath>IRReceiverStats.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -50,7 +51,7 @@
         <platform>3</platform>
       </toolsSet>
       <packs>
-        <pack name="PIC16F1xxxx_DFP" vendor="Microchip" version="1.0.38"/>
+        <pack name="PIC16F1xxxx_DFP" vendor="Microchip" version="1.0.40"/>
       </packs>
       <compileType>
         <linkerTool>

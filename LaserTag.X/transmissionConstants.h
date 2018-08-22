@@ -1,55 +1,27 @@
 #ifndef TRANSMISSIONCONSTANTS_H
 #define	TRANSMISSIONCONSTANTS_H
 
-/*
- * Our sensor is a TSOP2240 @ 40kHz. The datasheet specifies that each pulse
- * must be at least 10 cycles, and that the gap between pulses must be at least
- * 12 cycles. We'll specify that a 10-cycle pulse represents a zero, and that a
- * 16-cycle pulse represents a one. The gap between pulses will be the minimum
- * 12 cycles.
- *
- * Pulses greater than 70 cycles @ 40khz must be separated by gaps of at least
- * 4x the pulse length, so our pulse lengths must be less than 70 cycles.
- *
- * The receiver can receive a maximum of 800 bursts per second, so divide that
- * by the number of bits in a shot and that's the hardware-enforced maximum fire
- * rate. For example if there are 10 bits in a shot then the maximum fire rate
- * is 80 shots per second.
- *
- * We should aim to use the TSOP2440 in the future - it is better at filtering
- * out noise. It has the same specifications as above, except that the maximum
- * pulse length before requiring a long silence is 35 cycles instead of 70, and
- * it can receive 1300 bursts per second instead of 800.
- *
- * The frequency of the sensor is the bottleneck of our system right now.
- * TSOP2*56 sensors receive @ 56kHz, so we may want to consider that in the
- * future as well.
- */
+#include "IRReceiverStats.h"
 
-#define RECEIVER_MODULATION_FREQ 56000 // 56kHz
-#define RECEIVER_PULSE_MIN_CYCLES 6
-#define RECEIVER_GAP_MIN_CYCLES 10
-
-#define MODULATION_FREQ (RECEIVER_MODULATION_FREQ)
-// Modulation frequency in microseconds. Assumes period is a whole integer
-#define MODULATION_PERIOD_US (1000000 / (MODULATION_FREQ))
+// The minimum difference between two pulse lengths to guarantee that they can
+// be unambiguously distinguished by the receiver
+#define PULSE_LENGTH_MIN_DIFF_MOD_CYCLES \
+        ((RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES) \
+       + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES))
 
 // Pulse lengths in terms of modulation cycles
 #define ZERO_PULSE_LENGTH_MOD_CYCLES (RECEIVER_PULSE_MIN_CYCLES)
-// 50% longer than a zero pulse - 3/2 of zero pulse, truncated down to integer
-#define ONE_PULSE_LENGTH_MOD_CYCLES  ((RECEIVER_PULSE_MIN_CYCLES) * 3 / 2)
+#define ONE_PULSE_LENGTH_MOD_CYCLES \
+        ((ZERO_PULSE_LENGTH_MOD_CYCLES) + (PULSE_LENGTH_MIN_DIFF_MOD_CYCLES))
 #define PULSE_GAP_LENGTH_MOD_CYCLES  (RECEIVER_GAP_MIN_CYCLES)
 
 #define MAX_PULSE_LENGTH_MOD_CYCLES (ONE_PULSE_LENGTH_MOD_CYCLES)
 
-// Pulse lengths in microseconds
-#define ZERO_PULSE_LENGTH_US ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
-#define ONE_PULSE_LENGTH_US  ((ONE_PULSE_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
-#define PULSE_GAP_LENGTH_US  ((PULSE_GAP_LENGTH_MOD_CYCLES) * (MODULATION_PERIOD_US))
-
-// Minimum gap between distinct transmissions in microseconds. 150% of pulse
-// gap, truncated to nearest integer number of cycles
+// Minimum gap between distinct transmissions in modulation cycles. 150% of
+// pulse gap, truncated to nearest integer number of cycles
 #define MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES (3 * (PULSE_GAP_LENGTH_MOD_CYCLES) / 2)
+
+#define MODULATION_FREQ (RECEIVER_MODULATION_FREQ)
 
 /*
  * A zero pulse is 10 modulation cycles
@@ -75,20 +47,13 @@
 #define NUM_PARITY_BITS 1
 #define TRANSMISSION_LENGTH ((TRANSMISSION_DATA_LENGTH) + NUM_PARITY_BITS)
 
+#define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
 #include <stdint.h>
-const uint32_t TSOP2240_MODULATION_FREQ_eval = TSOP2240_MODULATION_FREQ;
-const uint8_t TSOP2240_PULSE_MIN_CYCLES_eval = TSOP2240_PULSE_MIN_CYCLES;
-const uint8_t TSOP2240_GAP_MIN_CYCLES_eval = TSOP2240_GAP_MIN_CYCLES;
 const uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
-const uint8_t MODULATION_PERIOD_US_eval = MODULATION_PERIOD_US;
 const uint8_t ZERO_PULSE_LENGTH_MOD_CYCLES_eval = ZERO_PULSE_LENGTH_MOD_CYCLES;
 const uint8_t ONE_PULSE_LENGTH_MOD_CYCLES_eval = ONE_PULSE_LENGTH_MOD_CYCLES;
 const uint8_t PULSE_GAP_LENGTH_MOD_CYCLES_eval = PULSE_GAP_LENGTH_MOD_CYCLES;
-const uint16_t ZERO_PULSE_LENGTH_US_eval = ZERO_PULSE_LENGTH_US;
-const uint16_t ONE_PULSE_LENGTH_US_eval = ONE_PULSE_LENGTH_US;
-const uint16_t PULSE_GAP_LENGTH_US_eval = PULSE_GAP_LENGTH_US;
-const uint16_t MIN_TRANSMISSION_GAP_LENGTH_US_eval = MIN_TRANSMISSION_GAP_LENGTH_US;
 const uint8_t TRANSMISSION_DATA_LENGTH_eval = TRANSMISSION_DATA_LENGTH;
 const uint8_t NUM_PARITY_BITS_eval = NUM_PARITY_BITS;
 const uint8_t TRANSMISSION_LENGTH_eval = TRANSMISSION_LENGTH;
