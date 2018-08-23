@@ -25,8 +25,6 @@
 #define MAG_IN HIGH
 #define MAG_OUT LOW
 
-typedef uint8_t TMR0_t;
-
 void configureSystem(void);
 void delay(uint32_t d);
 void delayTiny(uint32_t d);

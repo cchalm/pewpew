@@ -10,11 +10,7 @@
 /*
  * HOW IT WORKS
  *
- * There are a whopping six modules involved in transmitting, compared to the
- * two used in past iterations. We may remove modules in the future if we find
- * them to be too much of a maintenance or power consumption cost. The advantage
- * of using all these modules is that it makes the output timing precise enough
- * to be used with a high-frequency carrier wave in the future.
+ * Creating a transmission involves four modules: DSM, Timer0, PWM7, and Timer6.
  *
  * The output is ultimately produced by the Data Signal Modulator (DSM) module.
  * The DSM combines a carrier signal with a modulation signal. The carrier
@@ -24,30 +20,16 @@
  *
  * The carrier signal is produced by a PWM module, which uses an 8-bit timer.
  *
- * The modulation signal is produced by a CLC module that ORs two inputs: one is
- * software-controlled, the other is the output of the CCP module. The
- * software-controlled input is LOW the vast majority of the time; the CCP
- * output is the primary modulation signal driver. See the CCP interrupt handler
- * for details.
+ * The modulation signal is produced by Timer0. The output of Timer0 toggles on
+ * each rising edge of an internal signal that pulses on each period match. Each
+ * period match also clears the timer register. In the interrupt handler for a
+ * period match we change the timer period to set the length of the ongoing
+ * pulse or gap.
  *
- * The modulation signal is (mostly) driven by a CCP module in Compare mode. The
- * CCP module uses a 16-bit timer. It is configured to SET or CLEAR the output
- * and generate an interrupt when the 16-bit CCPR register matches the 16-bit
- * timer register. In the interrupt handler we toggle the set/clear behavior and
- * add the next desired period to the CCPR register.
+ * The clock source for the modulation timer is the PWM signal itself.
  *
- * We cannot use the built-in output toggle option of the CCP module because the
- * toggle seems to clock on the instruction clock regardless of our choice of
- * timer source for the CCP module. If we choose a timer with a low-frequency
- * clock source, this quirk makes the output oscillate instead of toggling.
- *
- * The CCP module is set up to work with a variety of clock sources up to
- * Fosc/4, but the PWM signal is convenient because that is the signal we're
- * counting pulses of.
- *
- * To start a transmission we clear the CCP timer's register and set the CCP
- * register to a preload value to manually trigger a Compare event after that
- * many cycles.
+ * To start a transmission we preload the modulation timer's period register,
+ * clear the timer, and start the timer.
  */
 
 static void configureTimer6(void)
@@ -83,96 +65,54 @@ static void configurePWM7(void)
 
     // Internally supplied to DSM
 
-    // Externally supplied to TMR5 via C0
-    RC0PPS = PWM7_OUT_PPS;
-    // Enable C0 output driver. We're using C0 is both an output and an input,
+    // Externally supplied to TMR0 via A7
+    RA7PPS = PWM7_OUT_PPS;
+    // Enable A7 output driver. We're using A6 is both an output and an input,
     // and in output mode it can do both
-    TRISC0 = 0;
+    TRISA7 = 0;
 }
 
-#define RC0_IN_PPS 0x10
+#define RA7_IN_PPS 0x07
+#define TIMER0_OUT_PPS 0x18
 
-static void configureTimer5(void)
+static void configureTimer0(void)
 {
-    // Timer5 is used by the CCP module to time output pulses
+    // Timer0 is used to time output pulses. Timer 0 is the only usable timer
+    // for this purpose. Timer1/3/5 doesn't have an adjustable period, and
+    // Timer2/4/6 has a double-buffered period register that only updates on
+    // specific, inconvenient events, and seems to have bugs when clocked from
+    // anything other than the instruction clock.
 
-    // Set prescaler to 1:1
-    T5CONbits.CKPS = 0b00;
+    // Timer0 is also perfectly suited for this application because it
+    // automatically toggles its output on each period match.
+
+    // We are using Timer0 as an 8-bit timer.
+
     // Set clock source to external pin
-    T5CLK = 0b0000;
-    // Configure C0 as the clock source pin, we will get the PWM signal from
+    T0CON1bits.T0CS = 0b001;
+    // Configure A7 as the clock source pin, we will get the PWM signal from
     // this pin
-    T5CKIPPS = RC0_IN_PPS;
-    // DO NOT configure C0 as an input. We need the output driver to be active
+    T0CKIPPS = RA7_IN_PPS;
+    // DO NOT configure A6 as an input. We need the output driver to be active
     // because we are outputting the PWM signal to the pin. A pin configured
     // as an output can still be read. The PWM configure function will enable
     // the output driver
-}
 
-#define CCP5_HIGH_OVERRIDE_LAT LATA6
+    // Configure C0 as the timer output pin
+    RC0PPS = TIMER0_OUT_PPS;
+    // Enable C0 output driver
+    TRISC0 = 0;
 
-#define CLC1_OUT_PPS 0x01
-
-#define CLC_INPUT_CCP5 0b010111
-#define CLC_INPUT_CLCIN0PPS 0b000000
-#define CLC_LOGIC_AND 0b010
-
-#define A6_IN_PPS 0x06
-
-static void configureCLC1(void)
-{
-    // Set CLC1 output pin to A2
-    RA2PPS = CLC1_OUT_PPS;
-    // Enable A2 output driver
-    TRISA2 = 0;
-
-    // Two inputs: CCP5 output, and a PPS-selected pin
-    CLC1SEL0 = CLC_INPUT_CCP5;
-    CLC1SEL1 = CLC_INPUT_CLCIN0PPS;
-
-    // Select input pin A6
-    CLCIN0PPS = A6_IN_PPS;
-    // Set A6 as an OUTPUT. We will write to and read from this pin, and in
-    // output mode it can do both
-    TRISA6 = 0;
-
-    // Gate 0 ORs inputs 0 and 1
-    CLC1GLS0 = 0b00001010;
-    LC1G1POL = 0;
-
-    // Gates 1, 2, and 3 always output HIGH
-    CLC1GLS1 = 0;
-    LC1G2POL = 1;
-    CLC1GLS2 = 0;
-    LC1G3POL = 1;
-    CLC1GLS3 = 0;
-    LC1G4POL = 1;
-
-    // Logic function is 4-input AND
-    CLC1CONbits.LC1MODE = CLC_LOGIC_AND;
-
-    // Enable the logic circuit
-    LC1EN = 1;
-}
-
-static void configureCCP5(void)
-{
-    // Don't configure the CCP mode yet, we'll do that when we enable the module
-
-    // Set CCP5 timer source to TMR5
-    CCPTMRS1bits.C5TSEL = 0b11;
-
-    // Enable CCP5 interrupts
-    CCP5IE = 1;
+    // Enable period match interrupts
+    TMR0IE = 1;
 }
 
 #define DSM_OUT_PPS 0x1B
 
-#define A1_IN_PPS 0x01
+#define A6_IN_PPS 0x06
 
 static void configureDSM(void)
 {
-    MDEN = 1;
     // Synchronize output with the high carrier signal (the modulated one)
     MDCHSYNC = 1;
     // Set the modulation source to the external MDMSRC pin, whose location is
@@ -187,48 +127,40 @@ static void configureDSM(void)
     MDCARL = 0b1011;
     NCOMD = 1;
 
-    // Select A1 as the modulation source pin
-    MDSRCPPS = A1_IN_PPS;
-    TRISA1 = 1; // A1 to input
+    // Select A6 as the modulation source pin
+    MDSRCPPS = A6_IN_PPS;
+    TRISA6 = 1; // A6 to input
 
     // Select A0 as the output pin for the DSM
     RA0PPS = DSM_OUT_PPS;
-
-    // Enable A0 output driver for DSM
-    TRISA0 = 0;
 }
 
-// TMR5 clocks at the carrier signal frequency
-#define TMR5_FREQ (MODULATION_FREQ)
+// TMR0 clocks at the carrier signal frequency
+#define TMR0_FREQ (MODULATION_FREQ)
 
-// Ratio of TMR5 clock frequency to the carrier signal modulation frequency.
+// Ratio of TMR0 clock frequency to the carrier signal modulation frequency.
 // Assumes they divide evenly
-#define TMR5_MOD_CLOCK_RATIO ((TMR5_FREQ) / (MODULATION_FREQ))
+#define TMR0_MOD_CLOCK_RATIO ((TMR0_FREQ) / (MODULATION_FREQ))
 
 /*
  * The DSM output is synchronized to the high carrier signal, which means
  * modulation line changes are reflected in the following cycle of the high
  * carrier signal rather than immediately. Both the rising and falling edges of
  * the modulation signal are synchronized.
- *
- * Because the PWM module runs independently of the DSM module, we don't know
- * how the carrier signal and the modulation signal are phase-shifted relative
- * to each other. This may make it difficult to output a precise number of
- * pulses. TODO investigate.
  */
 
-// Pulse lengths in terms of TMR5 cycles
-#define PULSE_GAP_LENGTH_TMR5_CYCLES ((PULSE_GAP_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
-#define ZERO_PULSE_LENGTH_TMR5_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
-#define ONE_PULSE_LENGTH_TMR5_CYCLES ((ONE_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
+// Pulse lengths in terms of TMR0 cycles
+#define PULSE_GAP_LENGTH_TMR0_CYCLES ((PULSE_GAP_LENGTH_MOD_CYCLES) * (TMR0_MOD_CLOCK_RATIO))
+#define ZERO_PULSE_LENGTH_TMR0_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) * (TMR0_MOD_CLOCK_RATIO))
+#define ONE_PULSE_LENGTH_TMR0_CYCLES ((ONE_PULSE_LENGTH_MOD_CYCLES) * (TMR0_MOD_CLOCK_RATIO))
 
-#define MAX_PULSE_LENGTH_TMR5_CYCLES ((MAX_PULSE_LENGTH_MOD_CYCLES) * (TMR5_MOD_CLOCK_RATIO))
+#define MAX_PULSE_LENGTH_TMR0_CYCLES ((MAX_PULSE_LENGTH_MOD_CYCLES) * (TMR0_MOD_CLOCK_RATIO))
 
-#define TMR5_PRELOAD MAX_PULSE_LENGTH_TMR5_CYCLES
+#define TMR0_PRELOAD MAX_PULSE_LENGTH_TMR0_CYCLES
 
-// Number of TMR5 cycles in a single period of the PWM carrier signal
-#define MOD_PERIOD_TMR5_CYCLES (TMR5_MOD_CLOCK_RATIO)
-#define CCP5_PRELOAD (MOD_PERIOD_TMR5_CYCLES)
+// Number of TMR0 cycles in a single period of the PWM carrier signal
+#define MOD_PERIOD_TMR0_CYCLES (TMR0_MOD_CLOCK_RATIO)
+#define MOD_TIMER_PRELOAD (MOD_PERIOD_TMR0_CYCLES)
 
 static void enableTransmissionModules(void)
 {
@@ -243,33 +175,31 @@ static void enableTransmissionModules(void)
     // Enable PWM
     PWM7EN = 1;
 
-    // Clear the CCP timer register
-    TMR5 = 0;
-    // Enable CCP timer
-    TMR5ON = 1;
+    // Clear the modulation timer register
+    TMR0L = 0;
+    // Preload the modulation timer period register to force a match after some
+    // number of cycles
+    TMR0H = MOD_TIMER_PRELOAD;
+    // Clear modulation timer's interrupt flag
+    TMR0IF = 0;
+    // Enable modulation timer
+    T0EN = 1;
 
-    // Configure compare module to set the output on match
-    CCP5CONbits.CCP5MODE = 0b1000;
-    // Set compare target to force a match after a delay long enough to allow
-    // the PWM signal to spin up
-    CCPR5 = CCP5_PRELOAD;
-    // Enable CCP5
-    CCP5EN = 1;
-
-    // Enable CLC1
-    LC1EN = 1;
+    // Enable DSM
+    MDEN = 1;
+    // Enable A0 output driver for DSM
+    TRISA0 = 0;
 }
 
 static void disableTransmissionModules(void)
 {
-    // Disable CLC1
-    LC1EN = 0;
+    // Disable A0 output driver for DSM
+    TRISA0 = 1;
+    // Disable DSM
+    MDEN = 0;
 
-    // Disable CCP
-    CCP5EN = 0;
-
-    // Disable CCP timer
-    TMR5ON = 0;
+    // Disable modulation timer
+    T0EN = 0;
 
     // Disable PWM
     PWM7EN = 0;
@@ -280,27 +210,21 @@ static void disableTransmissionModules(void)
 
 void initializeTransmitter()
 {
-    // Disable all modules before configuration. We'll turn them all on when we
-    // transmit
-    disableTransmissionModules();
-
-    // DSM uses PWM7 and CLC1.  PWM7 uses TMR6. CLC1 uses CCP5. CCP5 uses TMR5
+    // DSM uses PWM7 and Timer0. PWM7 uses TMR6
     configureTimer6();
     configurePWM7();
-    configureTimer5();
-    configureCLC1();
-    configureCCP5();
+    configureTimer0();
     configureDSM();
 }
 
-typedef uint16_t TMR5_t;
+typedef uint8_t TMR0_t;
 
 static volatile bool g_transmitting = false;
 static uint16_t g_transmission_data = 0;
 
 void handleTransmissionTimingInterrupt()
 {
-    if (!(CCP5IF && CCP5IE))
+    if (!(TMR0IF && TMR0IE))
         return;
 
     // Send MSB first
@@ -314,18 +238,14 @@ void handleTransmissionTimingInterrupt()
 
         transmission_data_index--;
 
-        TMR5_t pulse_width =
+        TMR0_t pulse_width =
                 ((g_transmission_data >> transmission_data_index) & 1) ?
-                    ONE_PULSE_LENGTH_TMR5_CYCLES : ZERO_PULSE_LENGTH_TMR5_CYCLES;
+                    ONE_PULSE_LENGTH_TMR0_CYCLES : ZERO_PULSE_LENGTH_TMR0_CYCLES;
 
-        CCPR5 += pulse_width;
-
-        // Configure the CCP module to clear the output on the next match.
-        // Override the output to hide the blip that occurs when we change the
-        // CCP mode
-        CCP5_HIGH_OVERRIDE_LAT = 1;
-        CCP5CONbits.CCP5MODE = 0b1001;
-        CCP5_HIGH_OVERRIDE_LAT = 0;
+        // Load the desired pulse length into the modulation timer's period
+        // register. The timer will be reset to 0 on the next clock cycle, not
+        // the current one. Subtract one from the pulse length to compensate
+        TMR0H = pulse_width - 1;
     }
     else // !next_edge_rising
     {
@@ -345,18 +265,15 @@ void handleTransmissionTimingInterrupt()
         }
         else
         {
-            CCPR5 += PULSE_GAP_LENGTH_TMR5_CYCLES;
+            // Load the desired gap length into the timer's period register.
+            // The timer will be reset to 0 on the next clock cycle, not the
+            // current one. Subtract one from the gap length to compensate
+            TMR0H = PULSE_GAP_LENGTH_TMR0_CYCLES - 1;
         }
-
-        // Configure the CCP module to set the output on the next match. Disable
-        // it during the change to avoid an errant high pulse
-        CCP5EN = 0;
-        CCP5CONbits.CCP5MODE = 0b1000;
-        CCP5EN = 1;
     }
 
     // Reset flag
-    CCP5IF = 0;
+    TMR0IF = 0;
 }
 
 bool transmitAsync(uint16_t data)
@@ -378,13 +295,12 @@ bool transmitAsync(uint16_t data)
 #define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
 #include <stdint.h>
-const volatile uint32_t TMR5_FREQ_eval = TMR5_FREQ;
-const volatile uint16_t TMR5_MOD_CLOCK_RATIO_eval = TMR5_MOD_CLOCK_RATIO;
-const volatile uint16_t PULSE_GAP_LENGTH_TMR5_CYCLES_eval = PULSE_GAP_LENGTH_TMR5_CYCLES;
-const volatile uint16_t ZERO_PULSE_LENGTH_TMR5_CYCLES_eval = ZERO_PULSE_LENGTH_TMR5_CYCLES;
-const volatile uint16_t ONE_PULSE_LENGTH_TMR5_CYCLES_eval = ONE_PULSE_LENGTH_TMR5_CYCLES;
-const volatile uint16_t MAX_PULSE_LENGTH_TMR5_CYCLES_eval = MAX_PULSE_LENGTH_TMR5_CYCLES;
-const volatile uint16_t TMR5_PRELOAD_eval = TMR5_PRELOAD;
-const volatile uint16_t MOD_PERIOD_TMR5_CYCLES_eval = MOD_PERIOD_TMR5_CYCLES;
-const volatile uint16_t CCP5_PRELOAD_eval = CCP5_PRELOAD;
+const volatile uint32_t TMR0_FREQ_eval = TMR0_FREQ;
+const volatile uint16_t TMR0_MOD_CLOCK_RATIO_eval = TMR0_MOD_CLOCK_RATIO;
+const volatile uint16_t PULSE_GAP_LENGTH_TMR0_CYCLES_eval = PULSE_GAP_LENGTH_TMR0_CYCLES;
+const volatile uint16_t ZERO_PULSE_LENGTH_TMR0_CYCLES_eval = ZERO_PULSE_LENGTH_TMR0_CYCLES;
+const volatile uint16_t ONE_PULSE_LENGTH_TMR0_CYCLES_eval = ONE_PULSE_LENGTH_TMR0_CYCLES;
+const volatile uint16_t MAX_PULSE_LENGTH_TMR0_CYCLES_eval = MAX_PULSE_LENGTH_TMR0_CYCLES;
+const volatile uint16_t TMR0_PRELOAD_eval = TMR0_PRELOAD;
+const volatile uint16_t MOD_PERIOD_TMR0_CYCLES_eval = MOD_PERIOD_TMR0_CYCLES;
 #endif
