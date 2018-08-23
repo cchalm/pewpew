@@ -155,8 +155,6 @@ static void configureCLC1(void)
     LC1EN = 1;
 }
 
-#define CCP5_OUT_PPS 0x0D
-
 static void configureCCP5(void)
 {
     // Don't configure the CCP mode yet, we'll do that when we enable the module
