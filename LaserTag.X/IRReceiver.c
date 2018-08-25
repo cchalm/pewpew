@@ -2,6 +2,7 @@
 #include "IRReceiver.h"
 
 #include "bitwiseUtils.h"
+#include "error.h"
 #include "IRReceiverStats.h"
 #include "transmissionConstants.h"
 
@@ -39,10 +40,14 @@
  *          interrupt code up and down.
  */
 
-#define SMT1_CLOCK_FREQ 32000000
+#define SMT1_CLOCK_FREQ 500000
 // Ratio between SMT1 clock frequency and transmission carrier wave frequency.
 // Assumes they divide evenly
 #define SMT1_MOD_FREQ_RATIO ((SMT1_CLOCK_FREQ) / (MODULATION_FREQ))
+
+// SMT1 period register value. The timer halts at this value, so this is the
+// max measurement value
+#define SMT1_PERIOD_SMT1_CYCLES (2 * (MAX_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
 
 #define RB3_PPS 0x0B
 
@@ -58,11 +63,10 @@ static void configureSMT1(void)
     // acquisition is made
     SMT1REPEAT = 1;
 
-    // Set clock source to HFINTOSC (32MHz)
-    // Note that the datasheet says HFINTOSC (16MHz) on page 535. We selected
-    // the HFINTOSC frequency as 32MHz with the OSCFRQ register though, and
-    // observation confirms 32MHz
-    SMT1CLK = 0b010;
+    // Set clock source to MFINTOSC
+    SMT1CLK = 0b100;
+    // Set prescaler to 1:1
+    SMT1CON0bits.SMT1PS = 0b00;
 
     // Signal input source: pin selected by SMT1SIGPPS
     SMT1SIG = 0b00000;
@@ -76,8 +80,7 @@ static void configureSMT1(void)
 
     // Halt on period match
     SMT1STP = 1;
-    // Set period register to 2x the maximum valid pulse length
-    SMT1PR = 2 * (MAX_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO);
+    SMT1PR = SMT1_PERIOD_SMT1_CYCLES;
     // Disable period match interrupts
     SMT1IE = 0;
 
@@ -90,27 +93,33 @@ static void configureSMT1(void)
     SMT1GO = 1;
 }
 
+void receiverStaticAsserts(void);
+
 void initializeReceiver(void)
 {
+    receiverStaticAsserts();
+
     configureSMT1();
 }
 
 // Minimum gap between distinct transmissions in terms of SMT1 clock cycles
 #define MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
 
-// Upper and lower bounds of pulse lengths, in terms of modulation cycles
-#define ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES))
-#define ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES))
-#define ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES ((ONE_PULSE_LENGTH_MOD_CYCLES) + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES))
-#define ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES ((ONE_PULSE_LENGTH_MOD_CYCLES) - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES))
+// Upper and lower bounds of pulse lengths, in terms of modulation cycles.
+// To increase resolution, these hold values 10x the real ones
+#define ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 ((ZERO_PULSE_LENGTH_MOD_CYCLES) * 10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
+#define ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 ((ZERO_PULSE_LENGTH_MOD_CYCLES) * 10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
+#define ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 ((ONE_PULSE_LENGTH_MOD_CYCLES) * 10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
+#define ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 ((ONE_PULSE_LENGTH_MOD_CYCLES) * 10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
 
-#define ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
-#define ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
-#define ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
-#define ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
+#define ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
 
-// It's actually 24 bits, but stdint doesn't have that
-typedef uint32_t SMT1_t;
+// We have limited the period of the SMT timer such that its value always fits
+// in 8 bits
+typedef uint8_t SMT1_t;
 
 static bool g_transmission_received = false;
 static uint16_t g_transmission_data = 0;
@@ -131,10 +140,10 @@ void receiverInterruptHandler()
     if (!(SMT1PWAIE && SMT1PWAIF))
         return;
 
-    // TODO consider picking a SMT1 frequency such that SMT1PR fits in 8 or 16
-    // bits, so that we can ignore some bits here to save space and time
-    g_gap_length = SMT1CPR;
-    g_pulse_length = SMT1CPW;
+    // We only need to grab the low (L) 8 bits because we've limited the max
+    // timer value
+    g_gap_length = SMT1CPRL;
+    g_pulse_length = SMT1CPWL;
     g_pulse_received = true;
 
     SMT1PWAIF = 0;
@@ -234,16 +243,30 @@ bool tryGetTransmissionData(uint16_t* data_out)
     return parity_matches;
 }
 
+void receiverStaticAsserts(void)
+{
+    // The SMT1 period must limit the timer value to 8 bits
+    if ((SMT1_PERIOD_SMT1_CYCLES) >= 256)
+        fatal(ERROR_SMT1_PERIOD_TOO_LARGE);
+
+    // The 0/1 pulse length ranges must not overlap
+    if (((ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
+            && (ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES))
+            || ((ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
+            && (ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)))
+        fatal(ERROR_OVERLAPPING_PULSE_LENGTH_RANGES);
+}
+
 #define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
 #include <stdint.h>
 const volatile uint32_t SMT1_CLOCK_FREQ_eval = SMT1_CLOCK_FREQ;
 const volatile uint16_t SMT1_MOD_FREQ_RATIO_eval = SMT1_MOD_FREQ_RATIO;
 const volatile uint16_t MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES;
-const volatile uint8_t ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_eval = ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES;
-const volatile uint8_t ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_eval = ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES;
-const volatile uint8_t ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_eval = ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES;
-const volatile uint8_t ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_eval = ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES;
+const volatile uint8_t ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10_eval = ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10;
+const volatile uint8_t ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10_eval = ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10;
+const volatile uint8_t ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10_eval = ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10;
+const volatile uint8_t ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10_eval = ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10;
 const volatile uint16_t ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES_eval = ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES;
 const volatile uint16_t ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES_eval = ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES;
 const volatile uint16_t ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES_eval = ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES;

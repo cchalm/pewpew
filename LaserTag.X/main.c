@@ -37,6 +37,7 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
+#include "error.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "LEDDisplay.h"
@@ -71,12 +72,6 @@
 #define MIN_SHOT_DELAY_MS 50
 #define MAX_SHOT_DELAY_MS 500
 #endif
-
-enum
-{
-    INVALID_SHOT_DATA_RECEIVED = 0b1001,
-    TRANSMISSION_OVERLAP = 0b100101
-};
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
@@ -154,7 +149,7 @@ int main(void)
 
 #ifdef ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
             if (received_data != g_shot_data_to_send)
-                error(INVALID_SHOT_DATA_RECEIVED);
+                fatal(ERROR_INVALID_SHOT_DATA_RECEIVED);
 #endif
         }
 
@@ -247,7 +242,7 @@ void shoot(void)
 
     bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
     if (transmissionInProgress)
-        error(TRANSMISSION_OVERLAP);
+        fatal(ERROR_TRANSMISSION_OVERLAP);
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT

@@ -6,8 +6,8 @@
 // The minimum difference between two pulse lengths to guarantee that they can
 // be unambiguously distinguished by the receiver
 #define PULSE_LENGTH_MIN_DIFF_MOD_CYCLES \
-        ((RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES) \
-       + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES))
+        ((((RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10) \
+       + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10)) / 10) + 1)
 
 // Pulse lengths in terms of modulation cycles
 #define ZERO_PULSE_LENGTH_MOD_CYCLES (RECEIVER_PULSE_MIN_CYCLES)
@@ -50,10 +50,13 @@
 #define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
 #include <stdint.h>
-const volatile uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
+const volatile uint8_t PULSE_LENGTH_MIN_DIFF_MOD_CYCLES_eval = PULSE_LENGTH_MIN_DIFF_MOD_CYCLES;
 const volatile uint8_t ZERO_PULSE_LENGTH_MOD_CYCLES_eval = ZERO_PULSE_LENGTH_MOD_CYCLES;
 const volatile uint8_t ONE_PULSE_LENGTH_MOD_CYCLES_eval = ONE_PULSE_LENGTH_MOD_CYCLES;
 const volatile uint8_t PULSE_GAP_LENGTH_MOD_CYCLES_eval = PULSE_GAP_LENGTH_MOD_CYCLES;
+const volatile uint8_t MAX_PULSE_LENGTH_MOD_CYCLES_eval = MAX_PULSE_LENGTH_MOD_CYCLES;
+const volatile uint8_t MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES;
+const volatile uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
 const volatile uint8_t TRANSMISSION_DATA_LENGTH_eval = TRANSMISSION_DATA_LENGTH;
 const volatile uint8_t NUM_PARITY_BITS_eval = NUM_PARITY_BITS;
 const volatile uint8_t TRANSMISSION_LENGTH_eval = TRANSMISSION_LENGTH;
