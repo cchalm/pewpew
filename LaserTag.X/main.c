@@ -137,6 +137,7 @@ int main(void)
     while(true)
     {
         transmitterEventHandler();
+        receiverEventHandler();
 
         uint16_t received_data;
         if (tryGetTransmissionData(&received_data))

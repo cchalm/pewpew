@@ -112,84 +112,100 @@ void initializeReceiver(void)
 // It's actually 24 bits, but stdint doesn't have that
 typedef uint32_t SMT1_t;
 
-static volatile bool g_transmission_received = false;
-static volatile uint16_t g_transmission_data = 0;
+static bool g_transmission_received = false;
+static uint16_t g_transmission_data = 0;
 
-#define RECORD_GAPS
+static volatile bool g_pulse_received = false;
+// Set by the interrupt handler, cleared by mainline code when read
+static volatile SMT1_t g_pulse_length;
+static volatile SMT1_t g_gap_length;
 
-static volatile SMT1_t g_pulses_received[TRANSMISSION_LENGTH];
-#ifdef RECORD_GAPS
-static volatile SMT1_t g_gaps_received[TRANSMISSION_LENGTH];
+#define RECORD_PULSE_LENGTHS
+#ifdef RECORD_PULSE_LENGTHS
+static SMT1_t g_pulse_lengths[TRANSMISSION_LENGTH];
+static SMT1_t g_gap_lengths[TRANSMISSION_LENGTH];
 #endif
 
 void receiverInterruptHandler()
 {
-    // Shot reception logic
-
-    // Data accumulator
-    static uint16_t data = 0;
-    static uint8_t bit_index = 0;
-
-    static bool wait_for_silence = false;
-
     if (!(SMT1PWAIE && SMT1PWAIF))
         return;
 
     // TODO consider picking a SMT1 frequency such that SMT1PR fits in 8 or 16
     // bits, so that we can ignore some bits here to save space and time
-    SMT1_t gap_length = SMT1CPR;
-    SMT1_t pulse_length = SMT1CPW;
-
-    if (gap_length >= MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES)
-    {
-        // Long silence, reset
-        data = 0;
-        bit_index = 0;
-
-        wait_for_silence = false;
-    }
-
-    if (!wait_for_silence)
-    {
-        g_pulses_received[bit_index] = pulse_length;
-#ifdef RECORD_GAPS
-        g_gaps_received[bit_index] = gap_length;
-#endif
-
-        if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
-        {
-            // Received a 0
-            data <<= 1;
-            bit_index++;
-        }
-        else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
-        {
-            // Received a 1
-            data = (data << 1) | 1;
-            bit_index++;
-        }
-        else
-        {
-            // Invalid pulse width. Something has gone wrong, so we're going to stop
-            // reading in data and wait until we see a long period of silence
-
-            wait_for_silence = true;
-        }
-
-        if (bit_index == TRANSMISSION_LENGTH)
-        {
-            g_transmission_data = data;
-            g_transmission_received = true;
-
-            // Wait for a reset gap before attempting to receive another
-            // transmission
-            wait_for_silence = true;
-        }
-    }
+    g_gap_length = SMT1CPR;
+    g_pulse_length = SMT1CPW;
+    g_pulse_received = true;
 
     SMT1PWAIF = 0;
+}
+
+void receiverEventHandler(void)
+{
+    if (g_pulse_received)
+    {
+        // Data accumulator
+        static uint16_t data = 0;
+        static uint8_t bit_index = 0;
+        static bool wait_for_silence = false;
+
+        // Copy these to reduce the chance of them getting written to while
+        // we're using them
+        SMT1_t pulse_length = g_pulse_length;
+        SMT1_t gap_length = g_gap_length;
+
+        // Since we copied the values, let another pulse come in
+        g_pulse_received = false;
+
+        if (gap_length >= MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES)
+        {
+            // Long silence, reset
+            data = 0;
+            bit_index = 0;
+
+            wait_for_silence = false;
+        }
+
+        if (!wait_for_silence)
+        {
+#ifdef RECORD_PULSE_LENGTHS
+            g_pulse_lengths[bit_index] = pulse_length;
+            g_gap_lengths[bit_index] = gap_length;
+#endif
+
+            if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
+                    && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
+            {
+                // Received a 0
+                data <<= 1;
+                bit_index++;
+            }
+            else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
+                    && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
+            {
+                // Received a 1
+                data = (data << 1) | 1;
+                bit_index++;
+            }
+            else
+            {
+                // Invalid pulse width. Something has gone wrong, so we're going to stop
+                // reading in data and wait until we see a long period of silence
+
+                wait_for_silence = true;
+            }
+
+            if (bit_index == TRANSMISSION_LENGTH)
+            {
+                g_transmission_data = data;
+                g_transmission_received = true;
+
+                // Wait for a reset gap before attempting to receive another
+                // transmission
+                wait_for_silence = true;
+            }
+        }
+    }
 }
 
 bool tryGetTransmissionData(uint16_t* data_out)
