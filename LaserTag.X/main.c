@@ -136,6 +136,8 @@ int main(void)
 
     while(true)
     {
+        transmitterEventHandler();
+
         uint16_t received_data;
         if (tryGetTransmissionData(&received_data))
         {
@@ -226,9 +228,9 @@ int main(void)
 // Main Interrupt Service Routine (ISR)
 void __interrupt () ISR(void)
 {
-    handleRTCTimerInterrupt();
-    handleTransmissionTimingInterrupt();
-    handleSignalReceptionInterrupt();
+    rtcTimerInterruptHandler();
+    transmitterInterruptHandler();
+    receiverInterruptHandler();
 }
 
 void setHealthDisplay(uint8_t value)

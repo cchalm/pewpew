@@ -11,7 +11,7 @@
 typedef unsigned int count_t;
 
 void initializeRTC(void);
-void handleRTCTimerInterrupt(void);
+void rtcTimerInterruptHandler(void);
 
 // Counts seconds. Overflows to 0 after ~18 hours (1092.25 minutes)
 count_t getSecondCount(void);

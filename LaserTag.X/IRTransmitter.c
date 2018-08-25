@@ -88,7 +88,7 @@ static void configureTimer0(void)
 
     // We are using Timer0 as an 8-bit timer.
 
-    // Set clock source to external pin
+    // Set clock source to external pin (inverted)
     T0CON1bits.T0CS = 0b001;
     // Configure A7 as the clock source pin, we will get the PWM signal from
     // this pin
@@ -160,13 +160,70 @@ static void configureDSM(void)
 
 // Number of TMR0 cycles in a single period of the PWM carrier signal
 #define MOD_PERIOD_TMR0_CYCLES (TMR0_MOD_CLOCK_RATIO)
-#define MOD_TIMER_PRELOAD (MOD_PERIOD_TMR0_CYCLES)
+#define MOD_TIMER_PERIOD_PRELOAD (MOD_PERIOD_TMR0_CYCLES)
+
+typedef uint8_t TMR0_t;
+
+static bool g_transmitting = false;
+static uint16_t g_data_to_transmit = 0;
+
+// Set to true by interrupt handler to indicate that a period match occurred
+static volatile bool g_period_match = false;
+
+static void setNextPeriod(bool* next_match_ends_transmission_out)
+{
+    // Send MSB first
+    static uint8_t transmission_data_index = TRANSMISSION_LENGTH;
+    static bool is_output_high = false;
+
+    // We're always one output cycle ahead. When the output is low, we're
+    // setting the period of the following high pulse, and vice versa.
+
+    if (is_output_high)
+    {
+        // Output is high. Set the period of the next low pulse
+
+        if (transmission_data_index == 0)
+        {
+            // We're in the middle of the final high pulse, so the next period
+            // match is the final match in this transmission
+
+            *next_match_ends_transmission_out = true;
+
+            // Reset the data index for the next transmission
+            transmission_data_index = TRANSMISSION_LENGTH;
+        }
+        else
+        {
+            // Load the desired gap length into the timer's period register.
+            // The timer resets to zero on the clock cycle following a match,
+            // not on the same clock cycle as the match. Subtract one from the
+            // pulse length to compensate
+            TMR0H = PULSE_GAP_LENGTH_TMR0_CYCLES - 1;
+        }
+    }
+    else // output is low
+    {
+        // Output is low. Set the period of the next high pulse
+
+        transmission_data_index--;
+
+        TMR0_t pulse_width =
+                ((g_data_to_transmit >> transmission_data_index) & 1) ?
+                    ONE_PULSE_LENGTH_TMR0_CYCLES : ZERO_PULSE_LENGTH_TMR0_CYCLES;
+
+        // Load the desired pulse length into the modulation timer's period
+        // register. The timer resets to zero on the clock cycle following a
+        // match, not on the same clock cycle as the match. Subtract one from
+        // the pulse length to compensate
+        TMR0H = pulse_width - 1;
+    }
+
+    is_output_high = !is_output_high;
+}
 
 static void enableTransmissionModules(void)
 {
-    // Note that we don't care about interrupts with either timer, so we don't
-    // have to clear their interrupt flags
-
     // Clear PWM timer register
     TMR6 = 0;
     // Enable PWM timer
@@ -174,16 +231,19 @@ static void enableTransmissionModules(void)
 
     // Enable PWM
     PWM7EN = 1;
-
     // Clear the modulation timer register
     TMR0L = 0;
-    // Preload the modulation timer period register to force a match after some
-    // number of cycles
-    TMR0H = MOD_TIMER_PRELOAD;
+    // Preload the period register to trigger a match after some number of
+    // cycles. This will get copied into TMR0H_ACTUAL when we start the timer
+    TMR0H = MOD_TIMER_PERIOD_PRELOAD;
     // Clear modulation timer's interrupt flag
     TMR0IF = 0;
     // Enable modulation timer
     T0EN = 1;
+
+    // Set the period of the next pulse. This will get copied to the actual
+    // period buffer on the next period match, the one we hard-coded above
+    setNextPeriod(NULL);
 
     // Enable DSM
     MDEN = 1;
@@ -217,63 +277,48 @@ void initializeTransmitter()
     configureDSM();
 }
 
-typedef uint8_t TMR0_t;
-
-static volatile bool g_transmitting = false;
-static uint16_t g_transmission_data = 0;
-
-void handleTransmissionTimingInterrupt()
+void transmitterInterruptHandler()
 {
     if (!(TMR0IF && TMR0IE))
         return;
 
-    // Send MSB first
-    static uint8_t transmission_data_index = TRANSMISSION_LENGTH;
-    static bool next_edge_rising = true;
-
-    if (next_edge_rising)
-    {
-        // Output is now HIGH. Next will be low
-        next_edge_rising = false;
-
-        transmission_data_index--;
-
-        TMR0_t pulse_width =
-                ((g_transmission_data >> transmission_data_index) & 1) ?
-                    ONE_PULSE_LENGTH_TMR0_CYCLES : ZERO_PULSE_LENGTH_TMR0_CYCLES;
-
-        // Load the desired pulse length into the modulation timer's period
-        // register. The timer will be reset to 0 on the next clock cycle, not
-        // the current one. Subtract one from the pulse length to compensate
-        TMR0H = pulse_width - 1;
-    }
-    else // !next_edge_rising
-    {
-        // Output is now LOW. Next will be high
-        next_edge_rising = true;
-
-        if (transmission_data_index == 0)
-        {
-            // This is the final falling edge of the shot
-
-            disableTransmissionModules();
-
-            // Reset the data index
-            transmission_data_index = TRANSMISSION_LENGTH;
-            // Let the main program know we're done transmitting
-            g_transmitting = false;
-        }
-        else
-        {
-            // Load the desired gap length into the timer's period register.
-            // The timer will be reset to 0 on the next clock cycle, not the
-            // current one. Subtract one from the gap length to compensate
-            TMR0H = PULSE_GAP_LENGTH_TMR0_CYCLES - 1;
-        }
-    }
+    g_period_match = true;
 
     // Reset flag
     TMR0IF = 0;
+}
+
+static void endTransmission(void)
+{
+    disableTransmissionModules();
+    // Let the main program know we're done transmitting
+    g_transmitting = false;
+}
+
+void transmitterEventHandler(void)
+{
+    static bool next_match_ends_transmission = false;
+
+    if (g_period_match)
+    {
+        if (next_match_ends_transmission)
+        {
+            endTransmission();
+            next_match_ends_transmission = false;
+            g_period_match = false;
+        }
+        else if (TMR0L > 0)
+        {
+            // I don't fully understand what's going on here, but I know that if
+            // you write to TMR0H while TMR0L is zero here, TMR0H immediately
+            // gets copied into TMR0H_ACTUAL. We don't want that, we want
+            // TMR0H_ACTUAL to be updated on the next match, so wait until
+            // TMR0L > 0 to set the next period
+
+            setNextPeriod(&next_match_ends_transmission);
+            g_period_match = false;
+        }
+    }
 }
 
 bool transmitAsync(uint16_t data)
@@ -285,8 +330,9 @@ bool transmitAsync(uint16_t data)
     // Append parity bits to the transmission
     uint8_t bit_sum = sumBits(data);
     uint8_t parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
-    g_transmission_data = (data << NUM_PARITY_BITS) | parity_bits;
+    g_data_to_transmit = (data << NUM_PARITY_BITS) | parity_bits;
 
+    // This starts the asynchronous dominoes that send the transmission
     enableTransmissionModules();
 
     return true;

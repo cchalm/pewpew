@@ -122,7 +122,7 @@ static volatile SMT1_t g_pulses_received[TRANSMISSION_LENGTH];
 static volatile SMT1_t g_gaps_received[TRANSMISSION_LENGTH];
 #endif
 
-void handleSignalReceptionInterrupt()
+void receiverInterruptHandler()
 {
     // Shot reception logic
 

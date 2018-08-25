@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 void initializeReceiver(void);
-void handleSignalReceptionInterrupt(void);
+void receiverInterruptHandler(void);
 
 // Returns true and copies the transmission data to the given address if a valid
 // transmission was received since the last call to tryGetTransmissionData.

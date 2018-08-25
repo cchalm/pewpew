@@ -36,7 +36,7 @@ void initializeRTC()
 static volatile count_t g_s_count = 0;
 static volatile count_t g_ms_count = 0;
 
-void handleRTCTimerInterrupt(void)
+void rtcTimerInterruptHandler(void)
 {
     // Real-time timer logic
 
