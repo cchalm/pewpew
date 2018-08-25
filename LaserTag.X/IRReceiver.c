@@ -45,10 +45,6 @@
 // Assumes they divide evenly
 #define SMT1_MOD_FREQ_RATIO ((SMT1_CLOCK_FREQ) / (MODULATION_FREQ))
 
-// SMT1 period register value. The timer halts at this value, so this is the
-// max measurement value
-#define SMT1_PERIOD_SMT1_CYCLES (2 * (MAX_PULSE_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO))
-
 #define RB3_PPS 0x0B
 
 static void configureSMT1(void)
@@ -80,7 +76,8 @@ static void configureSMT1(void)
 
     // Halt on period match
     SMT1STP = 1;
-    SMT1PR = SMT1_PERIOD_SMT1_CYCLES;
+    // Don't allow SMT1TMR to increment beyond an 8-bit value
+    SMT1PR = 255;
     // Disable period match interrupts
     SMT1IE = 0;
 
@@ -245,9 +242,14 @@ bool tryGetTransmissionData(uint16_t* data_out)
 
 void receiverStaticAsserts(void)
 {
-    // The SMT1 period must limit the timer value to 8 bits
-    if ((SMT1_PERIOD_SMT1_CYCLES) >= 256)
-        fatal(ERROR_SMT1_PERIOD_TOO_LARGE);
+    // Pulse lengths in terms of SMT1 cycles must fit in 8 bits with room to
+    // spare
+    if ((ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) > 200)
+        fatal(ERROR_PULSE_MEASUREMENT_DOESNT_FIT_SMT1);
+
+    // The transmission gap length, in terms of SMT1 cycles, must fit in 8 bits
+    if ((MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES) * (SMT1_MOD_FREQ_RATIO) > 255)
+        fatal(ERROR_GAP_MEASUREMENT_DOESNT_FIT_SMT1);
 
     // The 0/1 pulse length ranges must not overlap
     if (((ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
