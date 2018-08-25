@@ -66,7 +66,7 @@
 #define COUNT_DROPPED_TRANSMISSIONS
 #define DISPLAY_DROP_COUNT
 #undef DISPLAY_RECEIVED_DATA
-#undef RANDOMIZE_SHOT_DELAY
+#define RANDOMIZE_SHOT_DELAY
 
 #ifdef RANDOMIZE_SHOT_DELAY
 #define MIN_SHOT_DELAY_MS 50
@@ -184,8 +184,14 @@ int main(void)
             // Indicate that a shot has just occurred and store the time at
             // which we can shoot again
 #ifdef RANDOMIZE_SHOT_DELAY
-            int16_t randDelay = (abs(rand()) % (MAX_SHOT_DELAY_MS - MIN_SHOT_DELAY_MS + 1)) + MIN_SHOT_DELAY_MS;
-            g_shot_enable_ms_count = getMillisecondCount() + randDelay;
+            // Rand is too slow, so sweep through the range instead
+            static uint16_t delay = MIN_SHOT_DELAY_MS;
+            static uint8_t inc = 1;
+            g_shot_enable_ms_count = getMillisecondCount() + delay;
+            delay += inc;
+            if (delay > MAX_SHOT_DELAY_MS)
+                delay = MIN_SHOT_DELAY_MS;
+            inc++;
 #else
             g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
 #endif
@@ -205,8 +211,8 @@ int main(void)
             }
         }
 
-        if (!mag_in)
-            //setHealthDisplay(0);
+        //if (!mag_in)
+        //    setHealthDisplay(0);
 
         if (mag_in && mag_was_out)
         {
@@ -238,7 +244,7 @@ void setHealthDisplay(uint8_t value)
 void shoot(void)
 {
     g_shot_data_to_send = (g_shot_data_to_send >> 1) |
-            ((abs(rand())%2) << (TRANSMISSION_DATA_LENGTH - 1));
+            ((TMR6%2) << (TRANSMISSION_DATA_LENGTH - 1));
 
     bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
     if (transmissionInProgress)

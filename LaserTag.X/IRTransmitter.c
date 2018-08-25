@@ -1,6 +1,7 @@
 #include "IRTransmitter.h"
 
 #include "bitwiseUtils.h"
+#include "error.h"
 #include "system.h"
 #include "transmissionConstants.h"
 
@@ -188,6 +189,11 @@ static void setNextPeriod(bool* next_match_ends_transmission_out)
 
             // Reset the data index for the next transmission
             transmission_data_index = TRANSMISSION_LENGTH;
+
+            // Set the period to 0. When this gets copied into the buffer on the
+            // next match, it will stop the timer from incrementing or toggling
+            // the output
+            TMR0H = 0;
         }
         else
         {
@@ -277,6 +283,9 @@ void transmitterInterruptHandler()
 {
     if (!(TMR0IF && TMR0IE))
         return;
+
+    if (g_period_match)
+        fatal(ERROR_UNHANDLED_PERIOD_MATCH);
 
     g_period_match = true;
 

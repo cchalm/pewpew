@@ -137,6 +137,9 @@ void receiverInterruptHandler()
     if (!(SMT1PWAIE && SMT1PWAIF))
         return;
 
+    if (g_pulse_received)
+        fatal(ERROR_UNHANDLED_PULSE_MEASUREMENT);
+
     // We only need to grab the low (L) 8 bits because we've limited the max
     // timer value
     g_gap_length = SMT1CPRL;
