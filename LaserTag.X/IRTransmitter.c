@@ -11,13 +11,19 @@
 /*
  * HOW IT WORKS
  *
- * Creating a transmission involves four modules: DSM, Timer0, PWM7, and Timer6.
+ * Creating a transmission involves four modules: CLC1, Timer0, PWM7, and
+ * Timer6.
  *
- * The output is ultimately produced by the Data Signal Modulator (DSM) module.
- * The DSM combines a carrier signal with a modulation signal. The carrier
- * carrier signal is a 40kHz PWM signal. When the modulation signal is HIGH, the
- * carrier wave is fed to the output. When the modulation signal is LOW, the
- * output is low.
+ * The output is ultimately produced by the CLC1 module. CLC1 ANDs together a
+ * carrier signal and a modulation signal. The carrier signal is a 40kHz square
+ * wave. When the modulation signal is HIGH, the carrier signal is fed to the
+ * output. When the modulation signal is LOW, the output is low.
+ *
+ * CLC1 does not synchronize the output with the carrier signal, so the
+ * modulation signal must be synchronized with the carrier signal. We achieve
+ * this by a) clocking the modulation signal timer off of the carrier signal
+ * itself, as mentioned below, and b) toggling the modulation signal in hardware
+ * rather than software, so that it is effectively instantaneous.
  *
  * The carrier signal is produced by a PWM module, which uses an 8-bit timer.
  *
@@ -64,7 +70,7 @@ static void configurePWM7(void)
     // NOTE: the 6 LSBs are dummies
     PWM7DC = 286 << 6;
 
-    // Internally supplied to DSM
+    // Internally supplied to CLC1
 
     // Externally supplied to TMR0 via A7
     RA7PPS = PWM7_OUT_PPS;
@@ -108,32 +114,51 @@ static void configureTimer0(void)
     TMR0IE = 1;
 }
 
-#define DSM_OUT_PPS 0x1B
+#define RC0_IN_PPS 0x10
+#define CLC1_OUT_PPS 0x01
 
-#define A6_IN_PPS 0x06
+#define CLC_IN_PWM7 25
+#define CLC_IN_CLCIN0PPS 0
+#define CLC_MODE_AND 0b010
 
-static void configureDSM(void)
+static void configureCLC1(void)
 {
-    // Synchronize output with the high carrier signal (the modulated one)
-    MDCHSYNC = 1;
-    // Set the modulation source to the external MDMSRC pin, whose location is
-    // configured by MDSRCPPS
-    MDSRC = 0b00000;
-    // Set carrier high signal source to PWM7_out
-    MDCARH = 0b1010;
-    // Set carrier low signal source to Vss. There doesn't seem to be a way to
-    // do this properly, so for now we're using the output of the NCO module,
-    // because it should be unused. To be safe, we're disabling the module too.
-    // TODO look into why we can't set the source to Vss
-    MDCARL = 0b1011;
-    NCOMD = 1;
+    // Select PWM7 as one input (the carrier signal)
+    CLC1SEL0 = CLC_IN_PWM7;
+    // Select CLCIN0PPS as another input (the modulation signal)
+    CLC1SEL1 = CLC_IN_CLCIN0PPS;
 
-    // Select A6 as the modulation source pin
-    MDSRCPPS = A6_IN_PPS;
-    TRISA6 = 1; // A6 to input
+    // We don't care what the remaining two inputs are set to, as we are not
+    // going to wire them up to any of the gates
 
-    // Select A0 as the output pin for the DSM
-    RA0PPS = DSM_OUT_PPS;
+    // Set CLCIN0PPS to C0
+    CLCIN0PPS = RC0_IN_PPS;
+    // DO NOT configure C0 as an input. We need the output driver to be active
+    // because we are outputting the modulation signal to the pin. A pin
+    // configured as an output can still be read. The modulation signal output
+    // module will enable the output driver
+
+    // Gate 0 receives CLCIN0. Neither the input nor the output are inverted
+    CLC1GLS0 = 0b00000010;
+    LC1G1POL = 0;
+    // Gate 1 receives CLCIN1. Neither the input nor the output are inverted
+    CLC1GLS1 = 0b00001000;
+    LC1G2POL = 0;
+    // Gate 2 receives nothing, always outputs HIGH
+    CLC1GLS2 = 0;
+    LC1G3POL = 1;
+    // Gate 3 receives nothing, always outputs HIGH
+    CLC1GLS3 = 0;
+    LC1G4POL = 1;
+
+    // Configure the logic circuit to AND the four gates
+    CLC1CONbits.LC1MODE = CLC_MODE_AND;
+
+    // The output of CLC1 is not inverted
+    LC1POL = 0;
+
+    // Select A0 as the output pin for CLC5
+    RA0PPS = CLC1_OUT_PPS;
 }
 
 // TMR0 clocks at the carrier signal frequency
@@ -142,13 +167,6 @@ static void configureDSM(void)
 // Ratio of TMR0 clock frequency to the carrier signal modulation frequency.
 // Assumes they divide evenly
 #define TMR0_MOD_CLOCK_RATIO ((TMR0_FREQ) / (MODULATION_FREQ))
-
-/*
- * The DSM output is synchronized to the high carrier signal, which means
- * modulation line changes are reflected in the following cycle of the high
- * carrier signal rather than immediately. Both the rising and falling edges of
- * the modulation signal are synchronized.
- */
 
 // Pulse lengths in terms of TMR0 cycles
 #define PULSE_GAP_LENGTH_TMR0_CYCLES ((PULSE_GAP_LENGTH_MOD_CYCLES) * (TMR0_MOD_CLOCK_RATIO))
@@ -247,18 +265,18 @@ static void enableTransmissionModules(void)
     // period buffer on the next period match, the one we hard-coded above
     setNextPeriod(NULL);
 
-    // Enable DSM
-    MDEN = 1;
-    // Enable A0 output driver for DSM
+    // Enable CLC1
+    LC1EN = 1;
+    // Enable A0 output driver for CLC1
     TRISA0 = 0;
 }
 
 static void disableTransmissionModules(void)
 {
-    // Disable A0 output driver for DSM
+    // Disable A0 output driver for CLC1
     TRISA0 = 1;
-    // Disable DSM
-    MDEN = 0;
+    // Disable CLC1
+    LC1EN = 0;
 
     // Disable modulation timer
     T0EN = 0;
@@ -272,11 +290,11 @@ static void disableTransmissionModules(void)
 
 void initializeTransmitter()
 {
-    // DSM uses PWM7 and Timer0. PWM7 uses TMR6
+    // CLC1 uses PWM7 and Timer0. PWM7 uses TMR6
     configureTimer6();
     configurePWM7();
     configureTimer0();
-    configureDSM();
+    configureCLC1();
 }
 
 void transmitterInterruptHandler()
