@@ -27,7 +27,7 @@
  *          SMTxCPR as the last LOW pulse width
  *
  * On SMTxTMR period match:
- *    - Automatic: halt timer until reset (TODO: confirm that the automatic resets count)
+ *    - Automatic: halt timer until reset
  *    - No interrupt
  *
  *

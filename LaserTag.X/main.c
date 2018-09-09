@@ -53,23 +53,24 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 100
+#define FIRE_RATE 50
 // Delay between shots in ms
 #define SHOT_DELAY_MS 1000/(FIRE_RATE)
 #define FULL_AUTO true
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
 // be registered. This is to mitigate button bounce.
-#define BOUNCE_DELAY 2
+#define BOUNCE_DELAY 50
 
-#define ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
-#define COUNT_DROPPED_TRANSMISSIONS
-#define DISPLAY_DROP_COUNT
+#undef ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
+#undef COUNT_DROPPED_TRANSMISSIONS
+#undef DISPLAY_DROP_COUNT
 #undef DISPLAY_RECEIVED_DATA
-#define RANDOMIZE_SHOT_DELAY
+#undef RANDOMIZE_SHOT_DELAY
+#undef SEND_RANDOM_DATA
 
 #ifdef RANDOMIZE_SHOT_DELAY
-#define MIN_SHOT_DELAY_MS 50
+#define MIN_SHOT_DELAY_MS 10
 #define MAX_SHOT_DELAY_MS 500
 #endif
 
@@ -115,7 +116,7 @@ int main(void)
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;
 
-    g_shot_data_to_send = 0b0101010101;
+    g_shot_data_to_send = 0b0101010100;
 
     int16_t health = MAX_HEALTH;
     int16_t ammo = MAX_AMMO;
@@ -141,7 +142,19 @@ int main(void)
             setLEDDisplay(received_data);
 #endif
 
-            flashHitLight();
+            // Register a hit if we received a shot not from ourselves
+            if (received_data != g_shot_data_to_send)
+            {
+                flashHitLight();
+                health--;
+
+                if (health == 0)
+                {
+                    fatal(0b0000110000);
+                }
+
+                setHealthDisplay(health);
+            }
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
             g_num_shots_received++;
@@ -243,8 +256,10 @@ void setHealthDisplay(uint8_t value)
 
 void shoot(void)
 {
+#ifdef SEND_RANDOM_DATA
     g_shot_data_to_send = (g_shot_data_to_send >> 1) |
             ((TMR6%2) << (TRANSMISSION_DATA_LENGTH - 1));
+#endif
 
     bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
     if (transmissionInProgress)

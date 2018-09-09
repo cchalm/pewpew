@@ -157,8 +157,8 @@ static void configureCLC1(void)
     // The output of CLC1 is not inverted
     LC1POL = 0;
 
-    // Select A0 as the output pin for CLC5
-    RA0PPS = CLC1_OUT_PPS;
+    // Select C3 as the output pin for CLC1
+    RC3PPS = CLC1_OUT_PPS;
 }
 
 // TMR0 clocks at the carrier signal frequency
@@ -267,14 +267,14 @@ static void enableTransmissionModules(void)
 
     // Enable CLC1
     LC1EN = 1;
-    // Enable A0 output driver for CLC1
-    TRISA0 = 0;
+    // Enable C3 output driver for CLC1
+    TRISC3 = 0;
 }
 
 static void disableTransmissionModules(void)
 {
-    // Disable A0 output driver for CLC1
-    TRISA0 = 1;
+    // Disable C3 output driver for CLC1
+    TRISC3 = 1;
     // Disable CLC1
     LC1EN = 0;
 
