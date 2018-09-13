@@ -62,12 +62,12 @@
 // be registered. This is to mitigate button bounce.
 #define BOUNCE_DELAY 50
 
-#undef ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
+#define ERROR_IF_RECEIVED_DOES_NOT_MATCH_SENT
 #undef COUNT_DROPPED_TRANSMISSIONS
 #undef DISPLAY_DROP_COUNT
-#undef DISPLAY_RECEIVED_DATA
-#undef RANDOMIZE_SHOT_DELAY
-#undef SEND_RANDOM_DATA
+#define DISPLAY_RECEIVED_DATA
+#define RANDOMIZE_SHOT_DELAY
+#define SEND_RANDOM_DATA
 
 #ifdef RANDOMIZE_SHOT_DELAY
 #define MIN_SHOT_DELAY_MS 10
@@ -79,7 +79,7 @@
 count_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
-uint16_t g_shot_data_to_send;
+uint8_t g_shot_data_to_send;
 
 void setHealthDisplay(uint8_t value);
 void shoot(void);
@@ -116,7 +116,7 @@ int main(void)
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;
 
-    g_shot_data_to_send = 0b0101010100;
+    g_shot_data_to_send = 0b01010100;
 
     int16_t health = MAX_HEALTH;
     int16_t ammo = MAX_AMMO;
@@ -135,7 +135,7 @@ int main(void)
         transmitterEventHandler();
         receiverEventHandler();
 
-        uint16_t received_data;
+        uint8_t received_data;
         if (tryGetTransmissionData(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA

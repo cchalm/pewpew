@@ -1,7 +1,7 @@
 #include <xc.h>
 #include "IRReceiver.h"
 
-#include "bitwiseUtils.h"
+#include "crc.h"
 #include "error.h"
 #include "IRReceiverStats.h"
 #include "transmissionConstants.h"
@@ -126,10 +126,20 @@ static volatile bool g_pulse_received = false;
 static volatile SMT1_t g_pulse_length;
 static volatile SMT1_t g_gap_length;
 
+// Record the pulse lengths of the last received transmission
 #define RECORD_PULSE_LENGTHS
 #ifdef RECORD_PULSE_LENGTHS
 static SMT1_t g_pulse_lengths[TRANSMISSION_LENGTH];
 static SMT1_t g_gap_lengths[TRANSMISSION_LENGTH];
+#endif
+
+// Remember all pulse lengths received since the start of the program
+#undef RECORD_ALL_PULSE_LENGTHS
+#ifdef RECORD_ALL_PULSE_LENGTHS
+#define NUM_DATA_POINTS 1900
+static SMT1_t g_all_pulse_lengths[NUM_DATA_POINTS];
+static SMT1_t g_all_gap_lengths[NUM_DATA_POINTS];
+int32_t g_pulse_num = 0;
 #endif
 
 void receiverInterruptHandler()
@@ -206,6 +216,18 @@ void receiverEventHandler(void)
 
             if (bit_index == TRANSMISSION_LENGTH)
             {
+#ifdef RECORD_ALL_PULSE_LENGTHS
+                if (g_pulse_num < NUM_DATA_POINTS - TRANSMISSION_LENGTH)
+                {
+                    for (int i = 0; i < TRANSMISSION_LENGTH; i++)
+                    {
+                        g_all_pulse_lengths[g_pulse_num] = g_pulse_lengths[i];
+                        g_all_gap_lengths[g_pulse_num] = g_gap_lengths[i];
+                        g_pulse_num++;
+                    }
+                }
+#endif
+
                 g_transmission_data = data;
                 g_transmission_received = true;
 
@@ -217,30 +239,31 @@ void receiverEventHandler(void)
     }
 }
 
-bool tryGetTransmissionData(uint16_t* data_out)
+bool tryGetTransmissionData(uint8_t* data_out)
 {
     if (!g_transmission_received)
         return false;
 
     // Copy the data to reduce the chance of it getting overwritten while we're
     // working on it
-    uint16_t data = g_transmission_data;
+    uint16_t transmission_data_copy = g_transmission_data;
 
     // Reset transmission received flag until the next transmission
     g_transmission_received = false;
 
-    uint16_t parity_bits_mask = (1 << NUM_PARITY_BITS) - 1;
-    // Sum all except the last n bits, n being the number of
-    // parity bits
-    uint8_t bit_sum = sumBits(data & ~parity_bits_mask);
-    bool parity_matches = ((bit_sum & parity_bits_mask) == (data & parity_bits_mask));
+    uint8_t data = transmission_data_copy >> CRC_LENGTH;
 
-    if (parity_matches)
+    uint8_t actualCRC = transmission_data_copy & ((1 << CRC_LENGTH) - 1);
+    uint8_t expectedCRC = crc(data);
+
+    bool crcMatches = expectedCRC == actualCRC;
+
+    if (crcMatches)
     {
-        *data_out = data >> NUM_PARITY_BITS;
+        *data_out = data;
     }
 
-    return parity_matches;
+    return crcMatches;
 }
 
 void receiverStaticAsserts(void)

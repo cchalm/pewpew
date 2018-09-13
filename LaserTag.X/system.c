@@ -1,5 +1,6 @@
 #include "system.h"
 
+#include "crc.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "LEDDisplay.h"
@@ -28,6 +29,8 @@ void configureSystem(void)
     initializeRTC();
     initializeReceiver();
     initializeTransmitter();
+
+    initializeCRC();
 
     // Set B4 - B5 to output
     TRISB &= ~0b110000;

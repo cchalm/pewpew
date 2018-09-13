@@ -1,6 +1,7 @@
 #ifndef TRANSMISSIONCONSTANTS_H
 #define	TRANSMISSIONCONSTANTS_H
 
+#include "crcConstants.h"
 #include "IRReceiverStats.h"
 
 // The minimum difference between two pulse lengths to guarantee that they can
@@ -40,10 +41,9 @@
  *     282 modulation cycles @ 25us per cycle = 7.15ms
  */
 
-#define TRANSMISSION_DATA_LENGTH 10
+#define TRANSMISSION_DATA_LENGTH 8
 
-#define NUM_PARITY_BITS 3
-#define TRANSMISSION_LENGTH ((TRANSMISSION_DATA_LENGTH) + NUM_PARITY_BITS)
+#define TRANSMISSION_LENGTH ((TRANSMISSION_DATA_LENGTH) + CRC_LENGTH)
 
 #define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
@@ -55,7 +55,6 @@ const volatile uint8_t PULSE_GAP_LENGTH_MOD_CYCLES_eval = PULSE_GAP_LENGTH_MOD_C
 const volatile uint8_t MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES;
 const volatile uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
 const volatile uint8_t TRANSMISSION_DATA_LENGTH_eval = TRANSMISSION_DATA_LENGTH;
-const volatile uint8_t NUM_PARITY_BITS_eval = NUM_PARITY_BITS;
 const volatile uint8_t TRANSMISSION_LENGTH_eval = TRANSMISSION_LENGTH;
 #endif
 

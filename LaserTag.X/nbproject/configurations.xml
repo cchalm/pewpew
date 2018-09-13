@@ -10,9 +10,10 @@
       <itemPath>IRTransmitter.h</itemPath>
       <itemPath>IRReceiver.h</itemPath>
       <itemPath>realTimeClock.h</itemPath>
-      <itemPath>bitwiseUtils.h</itemPath>
       <itemPath>IRReceiverStats.h</itemPath>
       <itemPath>error.h</itemPath>
+      <itemPath>crc.h</itemPath>
+      <itemPath>crcConstants.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -27,8 +28,8 @@
       <itemPath>IRTransmitter.c</itemPath>
       <itemPath>IRReceiver.c</itemPath>
       <itemPath>realTimeClock.c</itemPath>
-      <itemPath>bitwiseUtils.c</itemPath>
       <itemPath>error.c</itemPath>
+      <itemPath>crc.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -158,6 +159,7 @@
                   value="Press to browse for a specific firmware version"/>
         <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>

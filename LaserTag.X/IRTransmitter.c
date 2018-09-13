@@ -1,6 +1,7 @@
 #include "IRTransmitter.h"
 
-#include "bitwiseUtils.h"
+#include "crc.h"
+#include "crcConstants.h"
 #include "error.h"
 #include "system.h"
 #include "transmissionConstants.h"
@@ -344,16 +345,14 @@ void transmitterEventHandler(void)
     }
 }
 
-bool transmitAsync(uint16_t data)
+bool transmitAsync(uint8_t data)
 {
     if (g_transmitting)
         return false;
     g_transmitting = true;
 
-    // Append parity bits to the transmission
-    uint8_t bit_sum = sumBits(data);
-    uint8_t parity_bits = bit_sum & ((1 << NUM_PARITY_BITS) - 1);
-    g_data_to_transmit = (data << NUM_PARITY_BITS) | parity_bits;
+    // Append crc bits to the transmission
+    g_data_to_transmit = ((int16_t)data << CRC_LENGTH) | crc(data);
 
     // This starts the asynchronous dominoes that send the transmission
     enableTransmissionModules();
