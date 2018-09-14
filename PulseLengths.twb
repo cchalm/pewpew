@@ -1,0 +1,355 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<!-- build 20182.18.0627.2230                               -->
+<workbook original-version='18.1' source-build='2018.2.0 (20182.18.0627.2230)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <preferences>
+    <preference name='ui.encoding.shelf.height' value='24' />
+    <preference name='ui.shelf.height' value='26' />
+  </preferences>
+  <datasources>
+    <datasource caption='Sheet1 (Untitled spreadsheet) (2)' inline='true' name='federated.0z287yz1iexk7i1a56dwc077rwog' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Untitled spreadsheet' name='google-sheets.0y7ldlu122yn0d15h6djp0les5qh'>
+            <connection REDIRECT_URI='urn:ietf:wg:oauth:2.0:oob' SCOPE='email profile https://www.googleapis.com/auth/drive.readonly' class='google-sheets' cleaning='no' compat='no' dataRefreshTime='' filename='Untitled spreadsheet' googleSheetId='126MW_jzGYVcDhQm4eMLuaHSd_aGem_K9imK-z-CJCHM' interpretationMode='8' mimeType='application/vnd.google-apps.spreadsheet' server='' server-oauth='' username='christopher@chalmersfamily.com' validate='no' />
+          </named-connection>
+        </named-connections>
+        <relation connection='google-sheets.0y7ldlu122yn0d15h6djp0les5qh' name='Sheet1' table='[Sheet1$]' type='table'>
+          <columns gridOrigin='A1:E5751:no:A1:E5751:0' header='no' outcome='6'>
+            <column datatype='integer' name='F1' ordinal='0' />
+            <column datatype='string' name='F2' ordinal='1' />
+            <column datatype='integer' name='F3' ordinal='2' />
+            <column datatype='string' name='F4' ordinal='3' />
+            <column datatype='integer' name='F5' ordinal='4' />
+          </columns>
+        </relation>
+        <metadata-records>
+          <metadata-record class='column'>
+            <remote-name>F1</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[F1]</local-name>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias>F1</remote-alias>
+            <ordinal>0</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;I8&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>F2</remote-name>
+            <remote-type>130</remote-type>
+            <local-name>[F2]</local-name>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias>F2</remote-alias>
+            <ordinal>1</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LEN_RUS_S2' />
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>F3</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[F3]</local-name>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias>F3</remote-alias>
+            <ordinal>2</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;I8&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>F4</remote-name>
+            <remote-type>130</remote-type>
+            <local-name>[F4]</local-name>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias>F4</remote-alias>
+            <ordinal>3</ordinal>
+            <local-type>string</local-type>
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <collation flag='1' name='LEN_RUS_S2' />
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;WSTR&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='column'>
+            <remote-name>F5</remote-name>
+            <remote-type>20</remote-type>
+            <local-name>[F5]</local-name>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias>F5</remote-alias>
+            <ordinal>4</ordinal>
+            <local-type>integer</local-type>
+            <aggregation>Sum</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='string' name='DebugRemoteType'>&quot;I8&quot;</attribute>
+            </attributes>
+          </metadata-record>
+          <metadata-record class='capability'>
+            <remote-name />
+            <remote-type>0</remote-type>
+            <parent-name>[Sheet1]</parent-name>
+            <remote-alias />
+            <aggregation>Count</aggregation>
+            <contains-null>true</contains-null>
+            <attributes>
+              <attribute datatype='integer' name='context'>2</attribute>
+              <attribute datatype='string' name='gridOrigin'>&quot;A1:E5751:no:A1:E5751:0&quot;</attribute>
+              <attribute datatype='boolean' name='header'>false</attribute>
+              <attribute datatype='integer' name='outcome'>6</attribute>
+            </attributes>
+          </metadata-record>
+        </metadata-records>
+      </connection>
+      <aliases enabled='yes' />
+      <column aggregation='Sum' caption='Sent Bit' datatype='integer' name='[Calculation_1044835154454683649]' role='dimension' type='ordinal'>
+        <calculation class='tableau' formula='CASE [F1]%13&#13;&#10;    WHEN 0 THEN 0&#13;&#10;    WHEN 1 THEN 1&#13;&#10;    WHEN 2 THEN 0&#13;&#10;    WHEN 3 THEN 1&#13;&#10;    WHEN 4 THEN 0&#13;&#10;    WHEN 5 THEN 1&#13;&#10;    WHEN 6 THEN 0&#13;&#10;    WHEN 7 THEN 1&#13;&#10;    WHEN 8 THEN 0&#13;&#10;    WHEN 9 THEN 0&#13;&#10;    WHEN 10 THEN 1&#13;&#10;    WHEN 11 THEN 0&#13;&#10;    WHEN 12 THEN 0&#13;&#10;END' />
+      </column>
+      <column caption='Index' datatype='integer' name='[F1]' role='dimension' type='ordinal' />
+      <column datatype='string' default-role='measure' default-type='quantitative' hidden='true' name='[F2]' role='dimension' type='nominal' />
+      <column caption='Pulse Length' datatype='integer' name='[F3]' role='measure' type='quantitative' />
+      <column datatype='string' hidden='true' name='[F4]' role='dimension' type='nominal' />
+      <column caption='Gap Length' datatype='integer' name='[F5]' role='measure' type='quantitative' />
+      <column caption='Index (bin)' datatype='integer' name='[Index (bin)]' role='dimension' type='ordinal'>
+        <calculation class='bin' decimals='3' formula='[F1]' peg='0' size='1898' />
+      </column>
+      <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
+        <calculation class='tableau' formula='1' />
+      </column>
+      <column aggregation='None' caption='Pulse Length (bin)' datatype='integer' name='[Pulse Length (bin)]' role='dimension' type='ordinal'>
+        <calculation class='bin' decimals='0' formula='[F3]' peg='0' size='2' />
+      </column>
+      <layout dim-ordering='alphabetic' dim-percentage='0.480374' measure-ordering='alphabetic' measure-percentage='0.519626' show-structure='true' />
+      <semantic-values>
+        <semantic-value key='[Country].[Name]' value='&quot;United States&quot;' />
+      </semantic-values>
+      <filter class='quantitative' column='[F3]' filter-group='2' included-values='non-null' />
+      <filter class='quantitative' column='[F5]' filter-group='2' included-values='non-null' />
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='Sheet 2'>
+      <table>
+        <view>
+          <datasources>
+            <datasource caption='Sheet1 (Untitled spreadsheet) (2)' name='federated.0z287yz1iexk7i1a56dwc077rwog' />
+          </datasources>
+          <datasource-dependencies datasource='federated.0z287yz1iexk7i1a56dwc077rwog'>
+            <column aggregation='Sum' caption='Sent Bit' datatype='integer' name='[Calculation_1044835154454683649]' role='dimension' type='ordinal'>
+              <calculation class='tableau' formula='CASE [F1]%13&#13;&#10;    WHEN 0 THEN 0&#13;&#10;    WHEN 1 THEN 1&#13;&#10;    WHEN 2 THEN 0&#13;&#10;    WHEN 3 THEN 1&#13;&#10;    WHEN 4 THEN 0&#13;&#10;    WHEN 5 THEN 1&#13;&#10;    WHEN 6 THEN 0&#13;&#10;    WHEN 7 THEN 1&#13;&#10;    WHEN 8 THEN 0&#13;&#10;    WHEN 9 THEN 0&#13;&#10;    WHEN 10 THEN 1&#13;&#10;    WHEN 11 THEN 0&#13;&#10;    WHEN 12 THEN 0&#13;&#10;END' />
+            </column>
+            <column caption='Index' datatype='integer' name='[F1]' role='dimension' type='ordinal' />
+            <column caption='Pulse Length' datatype='integer' name='[F3]' role='measure' type='quantitative' />
+            <column caption='Gap Length' datatype='integer' name='[F5]' role='measure' type='quantitative' />
+            <column datatype='integer' name='[Number of Records]' role='measure' type='quantitative' user:auto-column='numrec'>
+              <calculation class='tableau' formula='1' />
+            </column>
+            <column-instance column='[Calculation_1044835154454683649]' derivation='None' name='[none:Calculation_1044835154454683649:ok]' pivot='key' type='ordinal' />
+            <column-instance column='[F3]' derivation='None' name='[none:F3:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[F5]' derivation='None' name='[none:F5:ok]' pivot='key' type='ordinal' />
+            <column-instance column='[F5]' derivation='None' name='[none:F5:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Number of Records]' derivation='Sum' name='[sum:Number of Records:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+          <filter class='categorical' column='[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:ok]'>
+            <groupfilter function='except' user:ui-domain='database' user:ui-enumeration='exclusive' user:ui-marker='enumerate'>
+              <groupfilter function='level-members' level='[none:F5:ok]' />
+              <groupfilter function='member' level='[none:F5:ok]' member='255' />
+            </groupfilter>
+          </filter>
+          <slices>
+            <column>[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:ok]</column>
+          </slices>
+          <aggregation value='true' />
+        </view>
+        <style />
+        <panes>
+          <pane id='1' selection-relaxation-option='selection-relaxation-allow'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Bar' />
+            <mark-sizing mark-sizing-setting='marks-scaling-off' />
+            <style>
+              <style-rule element='mark'>
+                <format attr='size' value='1' />
+              </style-rule>
+            </style>
+          </pane>
+          <pane id='2' selection-relaxation-option='selection-relaxation-allow' x-axis-name='[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F3:qk]'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Bar' />
+            <mark-sizing mark-sizing-setting='marks-scaling-off' />
+            <encodings>
+              <color column='[federated.0z287yz1iexk7i1a56dwc077rwog].[none:Calculation_1044835154454683649:ok]' />
+            </encodings>
+            <style>
+              <style-rule element='mark'>
+                <format attr='size' value='0.53773480653762817' />
+              </style-rule>
+            </style>
+          </pane>
+          <pane id='3' selection-relaxation-option='selection-relaxation-allow' x-axis-name='[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:qk]'>
+            <view>
+              <breakdown value='auto' />
+            </view>
+            <mark class='Bar' />
+            <mark-sizing mark-sizing-setting='marks-scaling-off' />
+            <style>
+              <style-rule element='mark'>
+                <format attr='size' value='0.53773480653762817' />
+              </style-rule>
+            </style>
+          </pane>
+        </panes>
+        <rows>[federated.0z287yz1iexk7i1a56dwc077rwog].[sum:Number of Records:qk]</rows>
+        <cols>([federated.0z287yz1iexk7i1a56dwc077rwog].[none:F3:qk] + [federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:qk])</cols>
+        <show-full-range>
+          <column>[federated.0z287yz1iexk7i1a56dwc077rwog].[Index (bin)]</column>
+          <column>[federated.0z287yz1iexk7i1a56dwc077rwog].[Pulse Length (bin)]</column>
+        </show-full-range>
+      </table>
+    </worksheet>
+  </worksheets>
+  <windows source-height='30'>
+    <window class='worksheet' maximized='true' name='Sheet 2'>
+      <cards>
+        <edge name='left'>
+          <strip size='160'>
+            <card type='pages' />
+            <card type='filters' />
+            <card type='marks' />
+          </strip>
+        </edge>
+        <edge name='top'>
+          <strip size='2147483647'>
+            <card type='columns' />
+          </strip>
+          <strip size='2147483647'>
+            <card type='rows' />
+          </strip>
+          <strip size='31'>
+            <card type='title' />
+          </strip>
+        </edge>
+        <edge name='right'>
+          <strip size='160'>
+            <card pane-specification-id='2' param='[federated.0z287yz1iexk7i1a56dwc077rwog].[none:Calculation_1044835154454683649:ok]' type='color' />
+          </strip>
+        </edge>
+      </cards>
+      <viewpoint>
+        <selection-collection>
+          <tuple-selection>
+            <tuple-reference>
+              <tuple-descriptor>
+                <pane-descriptor>
+                  <x-fields>
+                    <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:qk]</field>
+                  </x-fields>
+                  <y-fields>
+                    <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[sum:Number of Records:qk]</field>
+                  </y-fields>
+                </pane-descriptor>
+                <columns>
+                  <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[none:F5:qk]</field>
+                  <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[sum:Number of Records:qk]</field>
+                </columns>
+              </tuple-descriptor>
+              <tuple>
+                <value>255</value>
+                <value>292</value>
+              </tuple>
+            </tuple-reference>
+          </tuple-selection>
+        </selection-collection>
+        <highlight>
+          <color-one-way>
+            <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[none:Calculation_1044835154454683649:ok]</field>
+            <field>[federated.0z287yz1iexk7i1a56dwc077rwog].[none:Pulse Length (bin):ok]</field>
+          </color-one-way>
+        </highlight>
+      </viewpoint>
+    </window>
+  </windows>
+  <thumbnails>
+    <thumbnail height='192' name='Sheet 2' width='192'>
+      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
+      AElFTkSuQmCC
+    </thumbnail>
+  </thumbnails>
+</workbook>
