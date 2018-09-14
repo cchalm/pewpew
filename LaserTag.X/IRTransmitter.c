@@ -345,19 +345,27 @@ void transmitterEventHandler(void)
     }
 }
 
-bool transmitAsync(uint8_t data)
+#ifndef DEBUG_TRANSMISSION
+static
+#endif
+bool transmitAsyncRaw(uint16_t data)
 {
     if (g_transmitting)
         return false;
     g_transmitting = true;
 
-    // Append crc bits to the transmission
-    g_data_to_transmit = ((int16_t)data << CRC_LENGTH) | crc(data);
+    g_data_to_transmit = data;
 
     // This starts the asynchronous dominoes that send the transmission
     enableTransmissionModules();
 
     return true;
+}
+
+bool transmitAsync(uint8_t data)
+{
+    // Append crc bits to the transmission
+    return transmitAsyncRaw(((int16_t)data << CRC_LENGTH) | crc(data));
 }
 
 #define EVALUATE_CONSTANTS

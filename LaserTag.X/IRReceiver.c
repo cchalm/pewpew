@@ -7,6 +7,8 @@
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
+// For memset
+#include <string.h>
 
 /*
  * HOW IT WORKS
@@ -127,19 +129,9 @@ static volatile SMT1_t g_pulse_length;
 static volatile SMT1_t g_gap_length;
 
 // Record the pulse lengths of the last received transmission
-#define RECORD_PULSE_LENGTHS
-#ifdef RECORD_PULSE_LENGTHS
+#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
 static SMT1_t g_pulse_lengths[TRANSMISSION_LENGTH];
 static SMT1_t g_gap_lengths[TRANSMISSION_LENGTH];
-#endif
-
-// Remember all pulse lengths received since the start of the program
-#undef RECORD_ALL_PULSE_LENGTHS
-#ifdef RECORD_ALL_PULSE_LENGTHS
-#define NUM_DATA_POINTS 1900
-static SMT1_t g_all_pulse_lengths[NUM_DATA_POINTS];
-static SMT1_t g_all_gap_lengths[NUM_DATA_POINTS];
-int32_t g_pulse_num = 0;
 #endif
 
 void receiverInterruptHandler()
@@ -187,7 +179,7 @@ void receiverEventHandler(void)
 
         if (!wait_for_silence)
         {
-#ifdef RECORD_PULSE_LENGTHS
+#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
             g_pulse_lengths[bit_index] = pulse_length;
             g_gap_lengths[bit_index] = gap_length;
 #endif
@@ -216,18 +208,6 @@ void receiverEventHandler(void)
 
             if (bit_index == TRANSMISSION_LENGTH)
             {
-#ifdef RECORD_ALL_PULSE_LENGTHS
-                if (g_pulse_num < NUM_DATA_POINTS - TRANSMISSION_LENGTH)
-                {
-                    for (int i = 0; i < TRANSMISSION_LENGTH; i++)
-                    {
-                        g_all_pulse_lengths[g_pulse_num] = g_pulse_lengths[i];
-                        g_all_gap_lengths[g_pulse_num] = g_gap_lengths[i];
-                        g_pulse_num++;
-                    }
-                }
-#endif
-
                 g_transmission_data = data;
                 g_transmission_received = true;
 
@@ -239,32 +219,55 @@ void receiverEventHandler(void)
     }
 }
 
-bool tryGetTransmissionData(uint8_t* data_out)
+#ifndef DEBUG_DATA_RECEPTION
+static
+#endif
+bool tryGetTransmissionDataRaw(uint16_t* data_out)
 {
     if (!g_transmission_received)
         return false;
 
-    // Copy the data to reduce the chance of it getting overwritten while we're
-    // working on it
-    uint16_t transmission_data_copy = g_transmission_data;
-
+    *data_out = g_transmission_data;
     // Reset transmission received flag until the next transmission
     g_transmission_received = false;
 
-    uint8_t data = transmission_data_copy >> CRC_LENGTH;
+    return true;
+}
 
-    uint8_t actualCRC = transmission_data_copy & ((1 << CRC_LENGTH) - 1);
-    uint8_t expectedCRC = crc(data);
+bool tryGetTransmissionData(uint8_t* data_out)
+{
+    uint16_t raw_transmission_data;
+    if (!tryGetTransmissionDataRaw(&raw_transmission_data))
+        return false;
 
-    bool crcMatches = expectedCRC == actualCRC;
+    uint8_t data = raw_transmission_data >> CRC_LENGTH;
 
-    if (crcMatches)
+    uint8_t actual_crc = raw_transmission_data & ((1 << CRC_LENGTH) - 1);
+    uint8_t expected_crc = crc(data);
+
+    bool crc_matches = expected_crc == actual_crc;
+
+    if (crc_matches)
     {
         *data_out = data;
     }
 
-    return crcMatches;
+    return crc_matches;
 }
+
+#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
+const size_t PULSE_LENGTH_ARRAY_SIZE = TRANSMISSION_LENGTH * sizeof(SMT1_t);
+
+SMT1_t* getPulseLengthArray()
+{
+    return g_pulse_lengths;
+}
+
+SMT1_t* getGapLengthArray()
+{
+    return g_gap_lengths;
+}
+#endif
 
 void receiverStaticAsserts(void)
 {
