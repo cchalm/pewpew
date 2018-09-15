@@ -73,7 +73,7 @@ static void configurePWM7(void)
 
     // Externally supplied to TMR0 via A7
     RA7PPS = PWM7_OUT_PPS;
-    // Enable A7 output driver. We're using A6 is both an output and an input,
+    // Enable A7 output driver. We're using A7 as both an output and an input,
     // and in output mode it can do both
     TRISA7 = 0;
 }
@@ -99,7 +99,7 @@ static void configureTimer0(void)
     // Configure A7 as the clock source pin, we will get the PWM signal from
     // this pin
     T0CKIPPS = RA7_IN_PPS;
-    // DO NOT configure A6 as an input. We need the output driver to be active
+    // DO NOT configure A7 as an input. We need the output driver to be active
     // because we are outputting the PWM signal to the pin. A pin configured
     // as an output can still be read. The PWM configure function will enable
     // the output driver
@@ -130,7 +130,7 @@ static void configureCLC1(void)
     // We don't care what the remaining two inputs are set to, as we are not
     // going to wire them up to any of the gates
 
-    // Set CLCIN0PPS to C0
+    // Set CLCIN0PPS to C0, where we are also sending the output of Timer0
     CLCIN0PPS = RC0_IN_PPS;
     // DO NOT configure C0 as an input. We need the output driver to be active
     // because we are outputting the modulation signal to the pin. A pin

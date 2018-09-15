@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // Returns true and copies the packet to the given address if a valid
-// transmission was received since the last call to tryGetPacket [or
+// packet was received since the last call to tryGetPacket [or
 // tryGetTransmission]. Returns false otherwise. The contents of packet_out are
 // undefined when this function returns false.
 bool tryGetPacket(uint8_t* packet_out);

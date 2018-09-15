@@ -11,5 +11,5 @@
 bool transmitPacketAsync(uint8_t packet)
 {
     // Append crc bits to the transmission
-    return transmitAsync(((int16_t)packet << CRC_LENGTH) | crc(packet), TRANSMISSION_LENGTH);
+    return transmitAsync(((int16_t)packet << CRC_LENGTH) | crc(packet), PACKET_TRANSMISSION_LENGTH);
 }

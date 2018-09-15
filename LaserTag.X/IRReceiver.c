@@ -6,8 +6,6 @@
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
-// For memset
-#include <string.h>
 
 /*
  * HOW IT WORKS
@@ -39,6 +37,30 @@
  *    - The interrupt handler only runs on falling edge events. This makes the
  *          interrupt handler simpler and reduces the time wasted spinning the
  *          interrupt code up and down.
+ *
+ *
+ * We are using an additional, regular timer to detect gaps longer than some
+ * predetermined length before they finish. A long gap indicates the end of a
+ * transmission.
+ *
+ * The timer operates in level reset, edge-triggered hardware limit one-shot
+ * mode. That's a mouthful. Here's what happens:
+ * - When the transmission line is ACTIVE, the timer is held at 0.
+ * - When the transmission line goes INACTIVE, the timer starts counting after a
+ *   delay.
+ * - When a period match occurs, the timer is turned OFF. It will not count
+ *   again until an ACTIVE --> INACTIVE edge occurs after the timer is turned
+ *   back on in software.
+ *
+ * If a period match occurs, we know there was silence on the transmission line
+ * for at least the duration determined by the period register. We handle the
+ * period match interrupt by setting a global boolean indicating that a
+ * transmission is available and turning the timer back on.
+ *
+ * If the timer is turned off by a period match and an active pulse begins and
+ * ends before the timer is turned on again, then the following gap will not be
+ * measured by this timer. This is unlikely, since we're turning the timer back
+ * on in the interrupt handler for it being turned off.
  */
 
 #define SMT1_CLOCK_FREQ 500000
@@ -91,6 +113,40 @@ static void configureSMT1(void)
     SMT1GO = 1;
 }
 
+#define TMR4_CLOCK_FREQ 500000
+// Ratio between TMR4 clock frequency and transmission carrier wave frequency.
+// Assumes they divide evenly
+#define TMR4_MOD_FREQ_RATIO ((TMR4_CLOCK_FREQ) / (MODULATION_FREQ))
+
+// Minimum gap between distinct transmissions in terms of TMR4 clock cycles
+#define MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES) * (TMR4_MOD_FREQ_RATIO))
+
+static void configureTMR4(void)
+{
+    // Set Timer4 clock source to Fosc/4 (8MHz)
+    T4CLKCONbits.CS = 0b0001;
+    // Set Timer4 clock prescaler to 1:16 (500kHz)
+    T4CONbits.CKPS = 0b100;
+
+    // Set Timer4 mode to rising edge start + low level reset (transmission line
+    // is active-low)
+    T4HLTbits.MODE = 0b01110;
+
+    // Set external reset signal to pin selected by T4INPPS
+    T4RSTbits.RSEL = 0b00000;
+
+    // Set external reset signal pin to B3
+    T4AINPPS = RB3_PPS;
+
+    T4PR = MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES;
+
+    // Enable period match interrupts
+    TMR4IE = 1;
+
+    // Start timer
+    TMR4ON = 1;
+}
+
 void receiverStaticAsserts(void);
 
 void initializeReceiver(void)
@@ -98,6 +154,7 @@ void initializeReceiver(void)
     receiverStaticAsserts();
 
     configureSMT1();
+    configureTMR4();
 }
 
 // Minimum gap between distinct transmissions in terms of SMT1 clock cycles
@@ -119,7 +176,14 @@ void initializeReceiver(void)
 // in 8 bits
 typedef uint8_t SMT1_t;
 
+// Index of the bit we're waiting to receive
+static uint8_t g_bit_index = 0;
+// Stores transmission data as it comes in
+static uint16_t g_transmission_data_accumulator = 0;
+static bool g_wait_for_silence = false;
+
 static bool g_transmission_received = false;
+static uint8_t g_transmission_length = 0;
 static uint16_t g_transmission_data = 0;
 
 static volatile bool g_pulse_received = false;
@@ -133,11 +197,11 @@ static volatile SMT1_t g_gap_length;
 // Record the pulse lengths of the last received transmission
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS
 #include "packetConstants.h"
-static SMT1_t g_pulse_lengths[TRANSMISSION_LENGTH];
-static SMT1_t g_gap_lengths[TRANSMISSION_LENGTH];
+static SMT1_t g_pulse_lengths[MAX_TRANSMISSION_LENGTH];
+static SMT1_t g_gap_lengths[MAX_TRANSMISSION_LENGTH];
 #endif
 
-void receiverInterruptHandler()
+static void SMT1InterruptHandler()
 {
     if (!(SMT1PWAIE && SMT1PWAIF))
         return;
@@ -154,15 +218,36 @@ void receiverInterruptHandler()
     SMT1PWAIF = 0;
 }
 
+static void TMR4InterruptHandler()
+{
+    if (!(TMR4IE && TMR4IF))
+        return;
+
+    if (!g_wait_for_silence)
+    {
+        g_transmission_data = g_transmission_data_accumulator;
+        g_transmission_length = g_bit_index;
+        g_transmission_received = true;
+    }
+
+    // Turn the timer back on, as the period match that triggered this interrupt
+    // also turned off the timer. It will resume counting on the next
+    // active --> inactive transition on the transmission line
+    TMR4ON = 1;
+
+    TMR4IF = 0;
+}
+
+void receiverInterruptHandler()
+{
+    TMR4InterruptHandler();
+    SMT1InterruptHandler();
+}
+
 void receiverEventHandler(void)
 {
     if (g_pulse_received)
     {
-        // Data accumulator
-        static uint16_t data = 0;
-        static uint8_t bit_index = 0;
-        static bool wait_for_silence = false;
-
         // Copy these to reduce the chance of them getting written to while
         // we're using them
         SMT1_t pulse_length = g_pulse_length;
@@ -174,60 +259,51 @@ void receiverEventHandler(void)
         if (gap_length >= MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES)
         {
             // Long silence, reset
-            data = 0;
-            bit_index = 0;
+            g_transmission_data_accumulator = 0;
+            g_bit_index = 0;
 
-            wait_for_silence = false;
+            g_wait_for_silence = false;
         }
 
-        if (!wait_for_silence)
+        if (!g_wait_for_silence)
         {
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-            g_pulse_lengths[bit_index] = pulse_length;
-            g_gap_lengths[bit_index] = gap_length;
+            g_pulse_lengths[g_bit_index] = pulse_length;
+            g_gap_lengths[g_bit_index] = gap_length;
 #endif
 
             if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
                     && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
             {
                 // Received a 0
-                data <<= 1;
-                bit_index++;
+                g_transmission_data_accumulator <<= 1;
+                g_bit_index++;
             }
             else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
                     && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
             {
                 // Received a 1
-                data = (data << 1) | 1;
-                bit_index++;
+                g_transmission_data_accumulator = (g_transmission_data_accumulator << 1) | 1;
+                g_bit_index++;
             }
             else
             {
                 // Invalid pulse width. Something has gone wrong, so we're going to stop
                 // reading in data and wait until we see a long period of silence
 
-                wait_for_silence = true;
-            }
-
-            if (bit_index == TRANSMISSION_LENGTH)
-            {
-                g_transmission_data = data;
-                g_transmission_received = true;
-
-                // Wait for a reset gap before attempting to receive another
-                // transmission
-                wait_for_silence = true;
+                g_wait_for_silence = true;
             }
         }
     }
 }
 
-bool tryGetTransmission(uint16_t* data_out)
+bool tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
 {
     if (!g_transmission_received)
         return false;
 
     *data_out = g_transmission_data;
+    *data_length_out = g_transmission_length;
     // Reset transmission received flag until the next transmission
     g_transmission_received = false;
 
@@ -235,7 +311,7 @@ bool tryGetTransmission(uint16_t* data_out)
 }
 
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-const size_t PULSE_LENGTH_ARRAY_SIZE = TRANSMISSION_LENGTH * sizeof(SMT1_t);
+const size_t PULSE_LENGTH_ARRAY_SIZE = MAX_TRANSMISSION_LENGTH * sizeof(SMT1_t);
 
 SMT1_t* getPulseLengthArray()
 {
@@ -265,6 +341,10 @@ void receiverStaticAsserts(void)
             || ((ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
             && (ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)))
         fatal(ERROR_OVERLAPPING_PULSE_LENGTH_RANGES);
+
+    // The transmission gap length, in terms of TMR4 cycles, must fit in T4PR
+    if (MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES > 255)
+        fatal(ERROR_TRANSMISSION_GAP_LENGTH_DOESNT_FIT_TMR4);
 }
 
 #define EVALUATE_CONSTANTS

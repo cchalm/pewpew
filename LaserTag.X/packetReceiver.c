@@ -4,6 +4,7 @@
 #include "IRReceiver.h"
 
 #include "crcConstants.h"
+#include "packetConstants.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -11,7 +12,11 @@
 bool tryGetPacket(uint8_t* packet_out)
 {
     uint16_t transmission;
-    if (!tryGetTransmission(&transmission))
+    uint8_t transmission_length;
+    if (!tryGetTransmission(&transmission, &transmission_length))
+        return false;
+
+    if (transmission_length != PACKET_TRANSMISSION_LENGTH)
         return false;
 
     uint8_t packet = transmission >> CRC_LENGTH;

@@ -16,11 +16,14 @@
         ((ZERO_PULSE_LENGTH_MOD_CYCLES) + (PULSE_LENGTH_MIN_DIFF_MOD_CYCLES))
 #define PULSE_GAP_LENGTH_MOD_CYCLES  (RECEIVER_GAP_MIN_CYCLES)
 
-// Minimum gap between distinct transmissions in modulation cycles. 150% of
-// pulse gap, truncated to nearest integer number of cycles
-#define MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES (3 * (PULSE_GAP_LENGTH_MOD_CYCLES) / 2)
+// Minimum gap between distinct transmissions in modulation cycles. 2x pulse
+// gap, truncated to nearest integer number of cycles
+#define MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES (2 * (PULSE_GAP_LENGTH_MOD_CYCLES))
 
 #define MODULATION_FREQ (RECEIVER_MODULATION_FREQ)
+
+// Max transmission length in bits, as determined by chosen storage types
+#define MAX_TRANSMISSION_LENGTH 16
 
 /*
  * A zero pulse is 10 modulation cycles
@@ -50,6 +53,7 @@ const volatile uint8_t ONE_PULSE_LENGTH_MOD_CYCLES_eval = ONE_PULSE_LENGTH_MOD_C
 const volatile uint8_t PULSE_GAP_LENGTH_MOD_CYCLES_eval = PULSE_GAP_LENGTH_MOD_CYCLES;
 const volatile uint8_t MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES_eval = MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES;
 const volatile uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
+const volatile uint8_t MAX_TRANSMISSION_LENGTH_eval = MAX_TRANSMISSION_LENGTH;
 #endif
 
 #endif	/* TRANSMISSIONCONSTANTS_H */
