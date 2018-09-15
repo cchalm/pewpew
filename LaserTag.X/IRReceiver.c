@@ -1,7 +1,6 @@
 #include <xc.h>
 #include "IRReceiver.h"
 
-#include "crc.h"
 #include "error.h"
 #include "IRReceiverStats.h"
 #include "transmissionConstants.h"
@@ -128,8 +127,12 @@ static volatile bool g_pulse_received = false;
 static volatile SMT1_t g_pulse_length;
 static volatile SMT1_t g_gap_length;
 
+// TODO remove. Currently used to detect end of transmission, but assumes all transmissions are the same length
+#include "packetConstants.h"
+
 // Record the pulse lengths of the last received transmission
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS
+#include "packetConstants.h"
 static SMT1_t g_pulse_lengths[TRANSMISSION_LENGTH];
 static SMT1_t g_gap_lengths[TRANSMISSION_LENGTH];
 #endif
@@ -219,10 +222,7 @@ void receiverEventHandler(void)
     }
 }
 
-#ifndef DEBUG_DATA_RECEPTION
-static
-#endif
-bool tryGetTransmissionDataRaw(uint16_t* data_out)
+bool tryGetTransmission(uint16_t* data_out)
 {
     if (!g_transmission_received)
         return false;
@@ -232,27 +232,6 @@ bool tryGetTransmissionDataRaw(uint16_t* data_out)
     g_transmission_received = false;
 
     return true;
-}
-
-bool tryGetTransmissionData(uint8_t* data_out)
-{
-    uint16_t raw_transmission_data;
-    if (!tryGetTransmissionDataRaw(&raw_transmission_data))
-        return false;
-
-    uint8_t data = raw_transmission_data >> CRC_LENGTH;
-
-    uint8_t actual_crc = raw_transmission_data & ((1 << CRC_LENGTH) - 1);
-    uint8_t expected_crc = crc(data);
-
-    bool crc_matches = expected_crc == actual_crc;
-
-    if (crc_matches)
-    {
-        *data_out = data;
-    }
-
-    return crc_matches;
 }
 
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS

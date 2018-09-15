@@ -1,7 +1,5 @@
 #include "IRTransmitter.h"
 
-#include "crc.h"
-#include "crcConstants.h"
 #include "error.h"
 #include "system.h"
 #include "transmissionConstants.h"
@@ -182,6 +180,7 @@ typedef uint8_t TMR0_t;
 
 static bool g_transmitting = false;
 static uint16_t g_data_to_transmit = 0;
+static uint8_t g_data_length = 0;
 
 // Set to true by interrupt handler to indicate that a period match occurred
 static volatile bool g_period_match = false;
@@ -189,7 +188,7 @@ static volatile bool g_period_match = false;
 static void setNextPeriod(bool* next_match_ends_transmission_out)
 {
     // Send MSB first
-    static uint8_t transmission_data_index = TRANSMISSION_LENGTH;
+    static uint8_t transmission_data_index = 0;
     static bool is_output_high = false;
 
     // We're always one output cycle ahead. When the output is low, we're
@@ -199,7 +198,7 @@ static void setNextPeriod(bool* next_match_ends_transmission_out)
     {
         // Output is high. Set the period of the next low pulse
 
-        if (transmission_data_index == 0)
+        if (transmission_data_index == g_data_length)
         {
             // We're in the middle of the final high pulse, so the next period
             // match is the final match in this transmission
@@ -207,7 +206,7 @@ static void setNextPeriod(bool* next_match_ends_transmission_out)
             *next_match_ends_transmission_out = true;
 
             // Reset the data index for the next transmission
-            transmission_data_index = TRANSMISSION_LENGTH;
+            transmission_data_index = 0;
 
             // Set the period to 0. When this gets copied into the buffer on the
             // next match, it will stop the timer from incrementing or toggling
@@ -227,10 +226,10 @@ static void setNextPeriod(bool* next_match_ends_transmission_out)
     {
         // Output is low. Set the period of the next high pulse
 
-        transmission_data_index--;
+        transmission_data_index++;
 
         TMR0_t pulse_width =
-                ((g_data_to_transmit >> transmission_data_index) & 1) ?
+                ((g_data_to_transmit >> (g_data_length - transmission_data_index)) & 1) ?
                     ONE_PULSE_LENGTH_TMR0_CYCLES : ZERO_PULSE_LENGTH_TMR0_CYCLES;
 
         // Load the desired pulse length into the modulation timer's period
@@ -345,27 +344,19 @@ void transmitterEventHandler(void)
     }
 }
 
-#ifndef DEBUG_TRANSMISSION
-static
-#endif
-bool transmitAsyncRaw(uint16_t data)
+bool transmitAsync(uint16_t data, uint8_t length)
 {
     if (g_transmitting)
         return false;
     g_transmitting = true;
 
     g_data_to_transmit = data;
+    g_data_length = length;
 
     // This starts the asynchronous dominoes that send the transmission
     enableTransmissionModules();
 
     return true;
-}
-
-bool transmitAsync(uint8_t data)
-{
-    // Append crc bits to the transmission
-    return transmitAsyncRaw(((int16_t)data << CRC_LENGTH) | crc(data));
 }
 
 #define EVALUATE_CONSTANTS

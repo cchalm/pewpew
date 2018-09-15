@@ -40,6 +40,9 @@
 #include "error.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
+#include "packetConstants.h"
+#include "packetReceiver.h"
+#include "packetTransmitter.h"
 #include "LEDDisplay.h"
 #include "realTimeClock.h"
 #include "system.h"
@@ -136,7 +139,7 @@ int main(void)
         receiverEventHandler();
 
         uint8_t received_data;
-        if (tryGetTransmissionData(&received_data))
+        if (tryGetPacket(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA
             setLEDDisplay(received_data);
@@ -258,10 +261,10 @@ void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
     g_shot_data_to_send = (g_shot_data_to_send >> 1) |
-            ((TMR6%2) << (TRANSMISSION_DATA_LENGTH - 1));
+            ((TMR6%2) << (PACKET_LENGTH - 1));
 #endif
 
-    bool transmissionInProgress = !transmitAsync(g_shot_data_to_send);
+    bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);
     if (transmissionInProgress)
         fatal(ERROR_TRANSMISSION_OVERLAP);
 
