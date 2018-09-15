@@ -24,9 +24,16 @@
 // RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES cycles longer than the
 // optical signal, and down to RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES
 // cycles shorter than the optical signal.
-// To increase resolution, these values are both 10x the real value
-#define RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10 35
-#define RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10 30
+// To increase resolution, these values are both 10x the real value.
+// We have decided to widen the range of valid pulse lengths to beyond spec.
+// This allows us to handle lower irradiances, which is important for range, but
+// also increases the length of all transmissions. In both constants below, the
+// first value is according to spec, and the second value is our adjustment.
+// These should be adjusted empirically based on testing in various
+// environments. Longer transmission may affect range when aiming a tagger with
+// shaky hands, for example.
+#define RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10 (35 + 40)
+#define RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10 (30 + 0)
 
 #define EVALUATE_CONSTANTS
 #ifdef EVALUATE_CONSTANTS
