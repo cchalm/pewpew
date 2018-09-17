@@ -1,6 +1,8 @@
 #include "IRTransmitter.h"
 
 #include "error.h"
+#include "pins.h"
+#include "pps.h"
 #include "system.h"
 #include "transmissionConstants.h"
 
@@ -10,7 +12,7 @@
 /*
  * HOW IT WORKS
  *
- * Creating a transmission involves four modules: CLC1, Timer0, PWM7, and
+ * Creating a transmission involves four modules: CLC1, Timer0, PWM3, and
  * Timer6.
  *
  * The output is ultimately produced by the CLC1 module. CLC1 ANDs together a
@@ -40,12 +42,12 @@
 
 static void configureTimer6(void)
 {
-    // Timer 6 is used by PWM7, which is used to construct the modulated high
+    // Timer 6 is used by PWM3, which is used to construct the modulated high
     // carrier signal
 
     // Set clock source to Fosc / 4 (8MHz). !!This is the only valid clock
     // source for PWM!!
-    T6CLK = 0b0001;
+    T6CLKCONbits.CS = 0b0001;
 
     // Set timer 6 period such that the PWM frequency (f) is 56kHz
     // T6PR = -1 + Fosc / (f * 4 * prescale)
@@ -57,29 +59,25 @@ static void configureTimer6(void)
     TMR6IE = 0;
 }
 
-#define PWM7_OUT_PPS 0x0F
-
-static void configurePWM7(void)
+static void configurePWM3(void)
 {
     // Set PWM7 timer source to TMR6
-    CCPTMRS1bits.P7TSEL = 0b11;
+    CCPTMRSbits.P3TSEL = 0b11;
     // Set duty cycle register
     // on:off ratio = PWMxDC / (4 * (T6PR + 1))
     // PWMxDC = 0.50 * (4 * (142 + 1)) = 286
     // NOTE: the 6 LSBs are dummies
-    PWM7DC = 286 << 6;
+    PWM3DC = 286 << 6;
 
     // Internally supplied to CLC1
 
-    // Externally supplied to TMR0 via A7
-    RA7PPS = PWM7_OUT_PPS;
-    // Enable A7 output driver. We're using A7 as both an output and an input,
-    // and in output mode it can do both
-    TRISA7 = 0;
+    // Supplied to Timer0 via external pin
+    PPS_TARGET_CARRIER_SIGNAL = PPS_SOURCE_PWM3_out;
+    // Enable the output driver for the pin we're outputting the carrier signal
+    // to. We're using the pin as both an output and an input, and in output
+    // mode it can do both
+    TRIS_CARRIER_SIGNAL = 0;
 }
-
-#define RA7_IN_PPS 0x07
-#define TIMER0_OUT_PPS 0x18
 
 static void configureTimer0(void)
 {
@@ -96,46 +94,38 @@ static void configureTimer0(void)
 
     // Set clock source to external pin (inverted)
     T0CON1bits.T0CS = 0b001;
-    // Configure A7 as the clock source pin, we will get the PWM signal from
-    // this pin
-    T0CKIPPS = RA7_IN_PPS;
-    // DO NOT configure A7 as an input. We need the output driver to be active
-    // because we are outputting the PWM signal to the pin. A pin configured
-    // as an output can still be read. The PWM configure function will enable
-    // the output driver
+    // Configure the transmission carrier signal as the clock source
+    T0CKIPPS = PPS_SOURCE_CARRIER_SIGNAL;
+    // DO NOT configure the carrier signal pin as an input. We need the output
+    // driver to be active because we are outputting the PWM signal to the pin.
+    // A pin configured as an output can still be read. The PWM configure
+    // function will enable the output driver
 
-    // Configure C0 as the timer output pin
-    RC0PPS = TIMER0_OUT_PPS;
+    // Output Timer0 to the modulation pin (TODO Timer0 doesn't have output on pic16f1619)
+    PPS_TARGET_MODULATION_SIGNAL = TIMER0_OUT_PPS;
     // Enable C0 output driver
-    TRISC0 = 0;
+    TRIS_MODULATION_SIGNAL = 0;
 
     // Enable period match interrupts
     TMR0IE = 1;
 }
 
-#define RC0_IN_PPS 0x10
-#define CLC1_OUT_PPS 0x01
-
-#define CLC_IN_PWM7 25
-#define CLC_IN_CLCIN0PPS 0
-#define CLC_MODE_AND 0b010
-
 static void configureCLC1(void)
 {
     // Select PWM7 as one input (the carrier signal)
-    CLC1SEL0 = CLC_IN_PWM7;
+    CLC1SEL0 = CLC_SOURCE_PWM3_out;
     // Select CLCIN0PPS as another input (the modulation signal)
-    CLC1SEL1 = CLC_IN_CLCIN0PPS;
+    CLC1SEL1 = CLC_SOURCE_CLCIN0;
 
     // We don't care what the remaining two inputs are set to, as we are not
     // going to wire them up to any of the gates
 
-    // Set CLCIN0PPS to C0, where we are also sending the output of Timer0
-    CLCIN0PPS = RC0_IN_PPS;
-    // DO NOT configure C0 as an input. We need the output driver to be active
-    // because we are outputting the modulation signal to the pin. A pin
-    // configured as an output can still be read. The modulation signal output
-    // module will enable the output driver
+    // Take the modulation signal as an input
+    CLCIN0PPS = PPS_SOURCE_MODULATION_SIGNAL;
+    // DO NOT configure the modulation signal pin as an input. We need the
+    // output driver to be active because we are outputting the modulation
+    // signal to the pin. A pin configured as an output can still be read. The
+    // modulation signal output module will enable the output driver
 
     // Gate 0 receives CLCIN0. Neither the input nor the output are inverted
     CLC1GLS0 = 0b00000010;
@@ -151,13 +141,13 @@ static void configureCLC1(void)
     LC1G4POL = 1;
 
     // Configure the logic circuit to AND the four gates
-    CLC1CONbits.LC1MODE = CLC_MODE_AND;
+    CLC1CONbits.LC1MODE = CLC_LOGIC_FUNCTION_4IN_AND;
 
     // The output of CLC1 is not inverted
     LC1POL = 0;
 
-    // Select C3 as the output pin for CLC1
-    RC3PPS = CLC1_OUT_PPS;
+    // Direct the output of CLC1 to the IR LED
+    PPS_TARGET_IR_LED = PPS_SOURCE_LC1_out;
 }
 
 // TMR0 clocks at the carrier signal frequency
@@ -250,7 +240,7 @@ static void enableTransmissionModules(void)
     TMR6ON = 1;
 
     // Enable PWM
-    PWM7EN = 1;
+    PWM3EN = 1;
     // Clear the modulation timer register
     TMR0L = 0;
     // Preload the period register to trigger a match after some number of
@@ -282,7 +272,7 @@ static void disableTransmissionModules(void)
     T0EN = 0;
 
     // Disable PWM
-    PWM7EN = 0;
+    PWM3EN = 0;
 
     // Disable PWM timer
     TMR6ON = 0;
@@ -292,7 +282,7 @@ void initializeTransmitter()
 {
     // CLC1 uses PWM7 and Timer0. PWM7 uses TMR6
     configureTimer6();
-    configurePWM7();
+    configurePWM3();
     configureTimer0();
     configureCLC1();
 }

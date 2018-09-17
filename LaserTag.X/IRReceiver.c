@@ -2,6 +2,7 @@
 #include "IRReceiver.h"
 
 #include "error.h"
+#include "pins.h"
 #include "IRReceiverStats.h"
 #include "transmissionConstants.h"
 
@@ -68,14 +69,12 @@
 // Assumes they divide evenly
 #define SMT1_MOD_FREQ_RATIO ((SMT1_CLOCK_FREQ) / (MODULATION_FREQ))
 
-#define RB3_PPS 0x0B
-
 static void configureSMT1(void)
 {
     // Don't start incrementing the timer yet
     SMT1GO = 0;
     // Enable SMT1
-    SMT1EN = 1;
+    SMT1CON0bits.EN = 1;
     // Set mode to High and Low Measurement
     SMT1CON1bits.MODE = 0b0011;
     // Enable repeated acquisitions, i.e. the timer doesn't stop when a data
@@ -90,15 +89,15 @@ static void configureSMT1(void)
     // Signal input source: pin selected by SMT1SIGPPS
     SMT1SIG = 0b00000;
 
-    // Set signal source to pin B3
-    SMT1SIGPPS = RB3_PPS;
-    // Set pin B3 to input
-    TRISB3 = 1;
+    // Set signal source to IR receiver pin
+    SMT1SIGPPS = PPS_SOURCE_IR_RECEIVER;
+    // Set IR receiver pin to input
+    TRIS_IR_RECEIVER = 1;
     // Set signal source polarity to active-low
-    SMT1SPOL = 1;
+    SMT1CON0bits.SPOL = 1;
 
     // Halt on period match
-    SMT1STP = 1;
+    SMT1CON0bits.STP = 1;
     // Don't allow SMT1TMR to increment beyond an 8-bit value
     SMT1PR = 255;
     // Disable period match interrupts
@@ -133,10 +132,10 @@ static void configureTMR4(void)
     T4HLTbits.MODE = 0b01110;
 
     // Set external reset signal to pin selected by T4INPPS
-    T4RSTbits.RSEL = 0b00000;
+    T4RSTbits.RSEL = 0b0000;
 
-    // Set external reset signal pin to B3
-    T4AINPPS = RB3_PPS;
+    // Set external reset signal pin to A2
+    T4PPS = PPS_SOURCE_IR_RECEIVER; // TODO verify that this is the right PPS register
 
     T4PR = MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES;
 

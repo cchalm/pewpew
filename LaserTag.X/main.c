@@ -103,10 +103,6 @@ int main(void)
 {
     configureSystem();
 
-    LATA = 0b111111;
-    LATD = 0b1111;
-    LATB = 0b111111;
-
     setLEDDisplay(0b1010101010);
     delay(400);
     setLEDDisplay(0b0000000000);
