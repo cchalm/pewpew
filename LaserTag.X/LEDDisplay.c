@@ -7,6 +7,9 @@
 // C0 - C5
 #define LED_MASK_PORTC 0b00111111
 
+// Mask where `1`s represent active-low LEDs
+#define ACTIVE_LOW_LEDS_MASK 0b0111000111
+
 #define PIN_LED0 RC0
 #define PIN_LED1 RC1
 #define PIN_LED2 RC2
@@ -20,9 +23,9 @@
 
 void initializeLEDDisplay()
 {
-    // Set all LEDs off. The LEDs are active-low
-    LATB = LATB | LED_MASK_PORTB;
-    LATC = LATC | LED_MASK_PORTC;
+    // Set all LEDs off
+    setLEDDisplay(0);
+
     // Set appropriate pins as output
     TRISB &= ~LED_MASK_PORTB;
     TRISC &= ~LED_MASK_PORTC;
@@ -35,8 +38,8 @@ void setLEDDisplay(uint16_t bits)
     // 9   8   7   6   5   4   3   2   1   0
     // B7  B6  B5  B4  C5  C4  C3  C2  C1  C0
 
-    // LEDs are active-low, so invert the given bits
-    bits = ~bits;
+    // Some LEDs are active-low. Invert those bits
+    bits ^= ACTIVE_LOW_LEDS_MASK;
 
     // Map bits onto port latches
     LATB = (LATB & ~LED_MASK_PORTB) | ((bits & 0b1111000000) >> 2);

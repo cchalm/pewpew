@@ -8,8 +8,8 @@
 
 void configureSystem(void)
 {
-    // Internal oscillator is configured for 32MHz at startup, via the RSTOSC
-    // configuration word
+    // Configure internal oscillator for 32MHz (16MHz x2 PLL)
+    OSCCONbits.IRCF = 0b1111;
 
     INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
     INTCONbits.PEIE = 1; // Enable peripheral interrupts
@@ -25,6 +25,10 @@ void configureSystem(void)
     initializeRTC();
 
     initializeCRC();
+    
+    LATA = 0b00110000;
+    LATB = 0b00000000;
+    LATC = 0b00000000;
 
     // Set A4 - A5 to output
     TRISA &= ~0b110000;

@@ -1,38 +1,33 @@
-// PIC16F18877 Configuration Bit Settings
+
+// PIC16F1619 Configuration Bit Settings
 
 // 'C' source line config statements
 
 // CONFIG1
-#pragma config FEXTOSC = OFF    // External Oscillator mode selection bits (Oscillator not enabled)
-#pragma config RSTOSC = HFINT32 // Power-up default value for COSC bits (HFINTOSC with OSCFRQ= 32 MHz and CDIV = 1:1)
-#pragma config CLKOUTEN = OFF   // Clock Out Enable bit (CLKOUT function is disabled; i/o or oscillator function on OSC2)
-#pragma config CSWEN = OFF      // Clock Switch Enable bit (The NOSC and NDIV bits cannot be changed by user software)
-#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable bit (FSCM timer disabled)
+#pragma config FOSC = INTOSC    // Oscillator Selection Bits (INTOSC oscillator: I/O function on CLKIN pin)
+#pragma config PWRTE = OFF      // Power-up Timer Enable (PWRT disabled)
+#pragma config MCLRE = ON       // MCLR Pin Function Select (MCLR/VPP pin function is MCLR)
+#pragma config CP = OFF         // Flash Program Memory Code Protection (Program memory code protection is disabled)
+#pragma config BOREN = OFF      // Brown-out Reset Enable (Brown-out Reset disabled)
+#pragma config CLKOUTEN = OFF   // Clock Out Enable (CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin)
+#pragma config IESO = ON        // Internal/External Switch Over (Internal External Switch Over mode is enabled)
+#pragma config FCMEN = ON       // Fail-Safe Clock Monitor Enable (Fail-Safe Clock Monitor is enabled)
 
 // CONFIG2
-#pragma config MCLRE = ON       // Master Clear Enable bit (MCLR pin is Master Clear function)
-#pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
-#pragma config LPBOREN = OFF    // Low-Power BOR enable bit (ULPBOR disabled)
-#pragma config BOREN = ON       // Brown-out reset enable bits (Brown-out Reset Enabled, SBOREN bit is ignored)
-#pragma config BORV = LO        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (VBOR) set to 1.9V on LF, and 2.45V on F Devices)
-#pragma config ZCD = OFF        // Zero-cross detect disable (Zero-cross detect circuit is disabled at POR.)
-#pragma config PPS1WAY = ON     // Peripheral Pin Select one-way control (The PPSLOCK bit can be cleared and set only once in software)
-#pragma config STVREN = ON      // Stack Overflow/Underflow Reset Enable bit (Stack Overflow or Underflow will cause a reset)
+#pragma config WRT = OFF        // Flash Memory Self-Write Protection (Write protection off)
+#pragma config PPS1WAY = ON     // Peripheral Pin Select one-way control (The PPSLOCK bit cannot be cleared once it is set by software)
+#pragma config ZCD = OFF        // Zero Cross Detect Disable Bit (ZCD disable.  ZCD can be enabled by setting the ZCDSEN bit of ZCDCON)
+#pragma config PLLEN = ON       // PLL Enable Bit (4x PLL is always enabled)
+#pragma config STVREN = ON      // Stack Overflow/Underflow Reset Enable (Stack Overflow or Underflow will cause a Reset)
+#pragma config BORV = LO        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (Vbor), low trip point selected.)
+#pragma config LPBOR = OFF      // Low-Power Brown Out Reset (Low-Power BOR is disabled)
+#pragma config LVP = ON         // Low-Voltage Programming Enable (Low-voltage programming enabled)
 
 // CONFIG3
-#pragma config WDTCPS = WDTCPS_31// WDT Period Select bits (Divider ratio 1:65536; software control of WDTPS)
-#pragma config WDTE = OFF       // WDT operating mode (WDT Disabled, SWDTEN is ignored)
-#pragma config WDTCWS = WDTCWS_7// WDT Window Select bits (window always open (100%); software control; keyed access not required)
-#pragma config WDTCCS = SC      // WDT input clock selector (Software Control)
-
-// CONFIG4
-#pragma config WRT = OFF        // UserNVM self-write protection bits (Write protection off)
-#pragma config SCANE = not_available// Scanner Enable bit (Scanner module is not available for use)
-#pragma config LVP = ON         // Low Voltage Programming Enable bit (Low Voltage programming enabled. MCLR/Vpp pin function is MCLR.)
-
-// CONFIG5
-#pragma config CP = OFF         // UserNVM Program memory code protection bit (Program Memory code protection disabled)
-#pragma config CPD = OFF        // DataNVM code protection bit (Data EEPROM code protection disabled)
+#pragma config WDTCPS = WDTCPS1F// WDT Period Select (Software Control (WDTPS))
+#pragma config WDTE = OFF       // Watchdog Timer Enable (WDT disabled)
+#pragma config WDTCWS = WDTCWSSW// WDT Window Select (Software WDT window size control (WDTWS bits))
+#pragma config WDTCCS = SWC     // WDT Input Clock Selector (Software control, controlled by WDTCS bits)
 
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
@@ -99,14 +94,16 @@ uint32_t g_num_shots_received = 0;
 int main(void)
 {
     configureSystem();
-
-    setLEDDisplay(0b1010101010);
+    
+    for (unsigned char i = 0; i < 10; i++)
+    {
+        setLEDDisplay(1 << i);
+        delay(100);
+    }
+    setLEDDisplay(0);
+    flashMuzzleLight();
     delay(400);
-    setLEDDisplay(0b0000000000);
-    delay(400);
-    setLEDDisplay(0b1010101010);
-    delay(400);
-    setLEDDisplay(0b0000000000);
+    flashHitLight();
     delay(400);
 
     g_can_shoot = true;
@@ -116,7 +113,6 @@ int main(void)
 
     int16_t health = MAX_HEALTH;
     int16_t ammo = MAX_AMMO;
-    setHealthDisplay(ammo);
 
     // Set the "was" variables for use on the first loop iteration
     uint16_t input_state = INPUT_PORT;
@@ -253,8 +249,8 @@ void shoot(void)
 #endif
 
     bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);
-    if (transmissionInProgress)
-        fatal(ERROR_TRANSMISSION_OVERLAP);
+    /*if (transmissionInProgress)
+        fatal(ERROR_TRANSMISSION_OVERLAP);*/ // TODO figure out what to do with this with the new separate transceiver
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
