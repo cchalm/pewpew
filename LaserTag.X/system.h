@@ -9,7 +9,7 @@
 #define LOW 0
 
 #define PIN_MUZZLE_FLASH RA5
-#define PIN_HIT_LIGHT RA5 // TODO: TBD
+#define PIN_HIT_LIGHT RA4
 
 #define INPUT_PORT PORTC
 

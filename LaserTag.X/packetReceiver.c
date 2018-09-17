@@ -1,7 +1,6 @@
 #include "packetReceiver.h"
 
 #include "crc.h"
-#include "IRReceiver.h"
 
 #include "crcConstants.h"
 #include "packetConstants.h"
@@ -13,7 +12,8 @@ bool tryGetPacket(uint8_t* packet_out)
 {
     uint16_t transmission;
     uint8_t transmission_length;
-    if (!tryGetTransmission(&transmission, &transmission_length))
+    // TODO call out to tranceiver MCU
+    if (true/*!tryGetTransmission(&transmission, &transmission_length)*/)
         return false;
 
     if (transmission_length != PACKET_TRANSMISSION_LENGTH)

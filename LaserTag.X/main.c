@@ -38,15 +38,12 @@
 // Use project enums instead of #define for ON and OFF.
 
 #include "error.h"
-#include "IRReceiver.h"
-#include "IRTransmitter.h"
 #include "packetConstants.h"
 #include "packetReceiver.h"
 #include "packetTransmitter.h"
 #include "LEDDisplay.h"
 #include "realTimeClock.h"
 #include "system.h"
-#include "transmissionConstants.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -131,9 +128,6 @@ int main(void)
 
     while(true)
     {
-        transmitterEventHandler();
-        receiverEventHandler();
-
         uint8_t received_data;
         if (tryGetPacket(&received_data))
         {
@@ -243,8 +237,6 @@ int main(void)
 void __interrupt () ISR(void)
 {
     rtcTimerInterruptHandler();
-    transmitterInterruptHandler();
-    receiverInterruptHandler();
 }
 
 void setHealthDisplay(uint8_t value)

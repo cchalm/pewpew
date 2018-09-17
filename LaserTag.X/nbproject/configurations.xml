@@ -6,14 +6,12 @@
                    projectFiles="true">
       <itemPath>system.h</itemPath>
       <itemPath>LEDDisplay.h</itemPath>
-      <itemPath>transmissionConstants.h</itemPath>
-      <itemPath>IRTransmitter.h</itemPath>
-      <itemPath>IRReceiver.h</itemPath>
       <itemPath>realTimeClock.h</itemPath>
-      <itemPath>IRReceiverStats.h</itemPath>
       <itemPath>error.h</itemPath>
       <itemPath>crc.h</itemPath>
       <itemPath>crcConstants.h</itemPath>
+      <itemPath>packetReceiver.h</itemPath>
+      <itemPath>packetTransmitter.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -25,11 +23,11 @@
       <itemPath>main.c</itemPath>
       <itemPath>system.c</itemPath>
       <itemPath>LEDDisplay.c</itemPath>
-      <itemPath>IRTransmitter.c</itemPath>
-      <itemPath>IRReceiver.c</itemPath>
       <itemPath>realTimeClock.c</itemPath>
       <itemPath>error.c</itemPath>
       <itemPath>crc.c</itemPath>
+      <itemPath>packetReceiver.c</itemPath>
+      <itemPath>packetTransmitter.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -45,7 +43,7 @@
     <conf name="default" type="2">
       <toolsSet>
         <developmentServer>localhost</developmentServer>
-        <targetDevice>PIC16F1619</targetDevice>
+        <targetDevice>PIC16F18877</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
         <platformTool>PICkit3PlatformTool</platformTool>
@@ -54,7 +52,7 @@
         <platform>3</platform>
       </toolsSet>
       <packs>
-        <pack name="PIC12-16F1xxx_DFP" vendor="Microchip" version="1.0.10"/>
+        <pack name="PIC16F1xxxx_DFP" vendor="Microchip" version="1.0.40"/>
       </packs>
       <compileType>
         <linkerTool>
@@ -173,7 +171,7 @@
                   value="${memories.instruction.ram.ranges}"/>
         <property key="memories.programmemory" value="true"/>
         <property key="memories.programmemory.ranges" value="0-3fff"/>
-        <property key="poweroptions.powerenable" value="true"/>
+        <property key="poweroptions.powerenable" value="false"/>
         <property key="programmertogo.imagename" value=""/>
         <property key="programoptions.donoteraseauxmem" value="false"/>
         <property key="programoptions.eraseb4program" value="true"/>

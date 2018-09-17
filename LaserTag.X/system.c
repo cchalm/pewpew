@@ -1,8 +1,6 @@
 #include "system.h"
 
 #include "crc.h"
-#include "IRReceiver.h"
-#include "IRTransmitter.h"
 #include "LEDDisplay.h"
 #include "realTimeClock.h"
 
@@ -25,16 +23,13 @@ void configureSystem(void)
     initializeLEDDisplay();
 
     initializeRTC();
-    initializeReceiver();
-    initializeTransmitter();
 
     initializeCRC();
 
     // Set A4 - A5 to output
     TRISA &= ~0b110000;
-    // TODO enable inputs after moving transmission to separate MCU
     // Set C6 - C7 to input
-    //TRISC |= 0b11000000;
+    TRISC |= 0b11000000;
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)
