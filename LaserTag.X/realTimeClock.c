@@ -10,22 +10,27 @@
 #include <stdbool.h>
 #include <xc.h>
 
-// TEMPORARY CHANGES - we don't have enough period-adjustable timers on one chip
-// to do the RTC properly, so we're approximating with a 16-bit timer for now.
-// Revert to the old implementation when we move the shot timing logic to
-// another chip
-
 void initializeRTC()
 {
-    // Select Fosc (32MHz) as the timer 2 clock source
-    TMR1CS = 0b01;
-    // No prescaler
+    // Note that the datasheet says HFINTOSC (16MHz) on page 429. We selected
+    // the HFINTOSC frequency as 32MHz with the OSCFRQ register though, and
+    // observation confirms 32MHz.
+    // Select HFINTOSC (32MHz) as the timer 2 clock source
+    T2CLKCON = 0b0011;
+    // Set prescaler to 1:128
+    T2CONbits.CKPS = 0b111;
+    // Set period register (the value after which the timer will overflow) to
+    // achieve an overflow frequency of 1kHz (one overflow per millisecond)
+    // (PR + 1) * (1/f) = t_overflow
+    // PR = f * t_overflow - 1
+    // PR = (32MHz / 128) * (0.001) - 1 = 249
+    T2PR = 249;
     // Enable overflow interrupts
-    TMR1IE = 1;
+    TMR2IE = 1;
     // Clear the timer
-    TMR1 = 0;
+    TMR2 = 0;
     // Start the timer
-    TMR1ON = 1;
+    TMR2ON = 1;
 }
 
 static volatile count_t g_s_count = 0;
@@ -35,7 +40,7 @@ void rtcTimerInterruptHandler(void)
 {
     // Real-time timer logic
 
-    if (!(TMR1IF && TMR1IE))
+    if (!(TMR2IF && TMR2IE))
         return;
 
     static count_t next_s = 1000;
@@ -49,7 +54,7 @@ void rtcTimerInterruptHandler(void)
     }
 
     // Reset flag
-    TMR1IF = 0;
+    TMR2IF = 0;
 }
 
 count_t getSecondCount()
