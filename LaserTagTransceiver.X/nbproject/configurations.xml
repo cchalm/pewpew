@@ -5,15 +5,14 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>system.h</itemPath>
-      <itemPath>LEDDisplay.h</itemPath>
       <itemPath>transmissionConstants.h</itemPath>
       <itemPath>IRTransmitter.h</itemPath>
       <itemPath>IRReceiver.h</itemPath>
-      <itemPath>realTimeClock.h</itemPath>
       <itemPath>IRReceiverStats.h</itemPath>
       <itemPath>error.h</itemPath>
-      <itemPath>crc.h</itemPath>
-      <itemPath>crcConstants.h</itemPath>
+      <itemPath>clc.h</itemPath>
+      <itemPath>pins.h</itemPath>
+      <itemPath>pps.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -24,12 +23,9 @@
                    projectFiles="true">
       <itemPath>main.c</itemPath>
       <itemPath>system.c</itemPath>
-      <itemPath>LEDDisplay.c</itemPath>
       <itemPath>IRTransmitter.c</itemPath>
       <itemPath>IRReceiver.c</itemPath>
-      <itemPath>realTimeClock.c</itemPath>
       <itemPath>error.c</itemPath>
-      <itemPath>crc.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -39,6 +35,7 @@
   </logicalFolder>
   <sourceRootList>
     <Elem>.</Elem>
+    <Elem>../LaserTag.X</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>

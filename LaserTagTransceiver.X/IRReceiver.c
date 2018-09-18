@@ -82,7 +82,7 @@ static void configureSMT1(void)
     SMT1REPEAT = 1;
 
     // Set clock source to MFINTOSC
-    SMT1CLK = 0b100;
+    SMT1CLK = 0b101;
     // Set prescaler to 1:1
     SMT1CON0bits.SMT1PS = 0b00;
 
@@ -123,7 +123,7 @@ static void configureSMT1(void)
 static void configureTMR4(void)
 {
     // Set Timer4 clock source to Fosc/4 (8MHz)
-    T4CLKCONbits.CS = 0b0001;
+    T4CLKCONbits.CS = 0b0000;
     // Set Timer4 clock prescaler to 1:16 (500kHz)
     T4CONbits.CKPS = 0b100;
 
@@ -134,8 +134,8 @@ static void configureTMR4(void)
     // Set external reset signal to pin selected by T4INPPS
     T4RSTbits.RSEL = 0b0000;
 
-    // Set external reset signal pin to A2
-    T4PPS = PPS_SOURCE_IR_RECEIVER; // TODO verify that this is the right PPS register
+    // Set external reset signal pin to the IR receiver pin
+    T4PPS = PPS_SOURCE_IR_RECEIVER;
 
     T4PR = MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES;
 
@@ -190,12 +190,8 @@ static volatile bool g_pulse_received = false;
 static volatile SMT1_t g_pulse_length;
 static volatile SMT1_t g_gap_length;
 
-// TODO remove. Currently used to detect end of transmission, but assumes all transmissions are the same length
-#include "packetConstants.h"
-
 // Record the pulse lengths of the last received transmission
 #ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-#include "packetConstants.h"
 static SMT1_t g_pulse_lengths[MAX_TRANSMISSION_LENGTH];
 static SMT1_t g_gap_lengths[MAX_TRANSMISSION_LENGTH];
 #endif

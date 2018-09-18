@@ -10,8 +10,8 @@
 
 void configureSystem(void)
 {
-    // Internal oscillator is configured for 32MHz at startup, via the RSTOSC
-    // configuration word
+    // Configure internal oscillator for 32MHz (16MHz x2 PLL)
+    OSCCONbits.IRCF = 0b1111;
 
     INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
     INTCONbits.PEIE = 1; // Enable peripheral interrupts
@@ -22,19 +22,11 @@ void configureSystem(void)
     ANSELB = 0;
     ANSELC = 0;
 
-    initializeLEDDisplay();
-
-    initializeRTC();
     initializeReceiver();
     initializeTransmitter();
 
-    initializeCRC();
-
-    // Set A4 - A5 to output
-    TRISA &= ~0b110000;
-    // TODO enable inputs after moving transmission to separate MCU
-    // Set C6 - C7 to input
-    //TRISC |= 0b11000000;
+    // Wait for the oscillator to be ready before continuing
+    while (!OSTS);
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)
