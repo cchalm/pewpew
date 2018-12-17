@@ -90,7 +90,7 @@ static void configureSMT1(void)
     SMT1SIG = 0b00000;
 
     // Set signal source to IR receiver pin
-    SMT1SIGPPS = PPS_SOURCE_IR_RECEIVER;
+    SMT1SIGPPS = PPS_IN_VAL_IR_RECEIVER;
     // Set IR receiver pin to input
     TRIS_IR_RECEIVER = 1;
     // Set signal source polarity to active-low
@@ -135,7 +135,7 @@ static void configureTMR4(void)
     T4RSTbits.RSEL = 0b0000;
 
     // Set external reset signal pin to the IR receiver pin
-    T4PPS = PPS_SOURCE_IR_RECEIVER;
+    T4PPS = PPS_IN_VAL_IR_RECEIVER;
 
     T4PR = MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES;
 

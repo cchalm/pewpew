@@ -1,30 +1,25 @@
-#ifndef PINCONFIG_H
-#define	PINCONFIG_H
+#ifndef PINS_H
+#define	PINS_H
 
-#include "clc.h"
 #include "pps.h"
+
+#include <xc.h>
 
 // Selection constants for any external pins we're using
 
-// IR receiver pin
-#define PPS_SOURCE_IR_RECEIVER PPS_SOURCE_RA2
-#define PPS_TARGET_IR_RECEIVER RA2PPS
-#define TRIS_IR_RECEIVER TRISA2
+// SCL pin
+#define PPS_IN_REG_SCL PPS_IN_REG_SSPCLK
+#define PPS_IN_VAL_SCL PPS_IN_VAL_RC3
+#define PPS_OUT_REG_SCL PPS_OUT_REG_RC3
+#define PPS_OUT_VAL_SCL PPS_OUT_VAL_SCK_SCL
+#define TRIS_SCL TRISC3
 
-// IR LED pin
-#define PPS_SOURCE_IR_LED PPS_SOURCE_RA4
-#define PPS_TARGET_IR_LED RA4PPS
-#define TRIS_IR_LED TRISA4
+// SDA pin
+#define PPS_IN_REG_SDA PPS_IN_REG_SSPDAT
+#define PPS_IN_VAL_SDA PPS_IN_VAL_RC4
+#define PPS_OUT_REG_SDA PPS_OUT_REG_RC4
+#define PPS_OUT_VAL_SDA PPS_OUT_VAL_SDO_SDA
+#define TRIS_SDA TRISC4
 
-// Transmission carrier signal pin
-#define PPS_SOURCE_CARRIER_SIGNAL PPS_SOURCE_RC7
-#define PPS_TARGET_CARRIER_SIGNAL RC7PPS
-#define TRIS_CARRIER_SIGNAL TRISC7
-
-// Modulation pin
-#define PPS_SOURCE_MODULATION_SIGNAL PPS_SOURCE_RC6
-#define PPS_TARGET_MODULATION_SIGNAL RC6PPS
-#define TRIS_MODULATION_SIGNAL TRISC6
-
-#endif	/* PINCONFIG_H */
+#endif	/* PINS_H */
 

@@ -1,4 +1,3 @@
-
 // PIC16F1619 Configuration Bit Settings
 
 // 'C' source line config statements
@@ -33,10 +32,12 @@
 // Use project enums instead of #define for ON and OFF.
 
 #include "error.h"
+#include "i2cMaster.h"
+#include "LEDDisplay.h"
+#include "LEDDriverI2CInterface.h"
 #include "packetConstants.h"
 #include "packetReceiver.h"
 #include "packetTransmitter.h"
-#include "LEDDisplay.h"
 #include "realTimeClock.h"
 #include "system.h"
 
@@ -91,16 +92,131 @@ uint32_t g_num_shots_sent = 0;
 uint32_t g_num_shots_received = 0;
 #endif
 
+void testLEDDriver()
+{
+    static int ledStartupSequenceIndex = 0;
+    static bool wasTransmitting = true;
+
+    bool isTransmitting = isTransmissionInProgress();
+
+    if (!isTransmitting && wasTransmitting)
+    {
+        if (ledStartupSequenceIndex == 0)
+        {
+            // Reset all registers. No surprises
+            LEDDriver_reset();
+        }
+        else if (ledStartupSequenceIndex == 1)
+        {
+            uint8_t data[36] = {
+                255,    // Bar: Red
+                255,    // Bar: Red
+                255,    // Bar: Red
+                255,    // Bar: Green
+                255,    // Bar: Green
+                255,    // Bar: Green
+                255,    // Bar: Green
+                255,    // Bar: Green
+                255,    // Bar: Green
+                255,    // Bar: Green
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                20,     // Bar: Blue
+                255,    // RGB: Red
+                213,    // RGB: Green
+                213,    // RGB: Blue
+                255,    // RGB: Red
+                213,    // RGB: Green
+                213,    // RGB: Blue
+                255,    // RGB: Red
+                213,    // RGB: Green
+                213,    // RGB: Blue
+                255,    // RGB: Red
+                213,    // RGB: Green
+                213,    // RGB: Blue
+                255,    // RGB: Red
+                213,    // RGB: Green
+                213,    // RGB: Blue
+                0       // NONE
+            };
+
+            LEDDriver_setPWM(0, data, 36);
+        }
+        else if (ledStartupSequenceIndex == 2)
+        {
+            uint8_t data[36] = {
+                0b001,  // Bar: Red
+                0b001,  // Bar: Red
+                0b001,  // Bar: Red
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b011,  // Bar: Green
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b111,  // Bar: Blue
+                0b110,  // RGB: Red
+                0b110,  // RGB: Green
+                0b111,  // RGB: Blue
+                0b110,  // RGB: Red
+                0b110,  // RGB: Green
+                0b110,  // RGB: Blue
+                0b111,  // RGB: Red
+                0b110,  // RGB: Green
+                0b111,  // RGB: Blue
+                0b110,  // RGB: Red
+                0b110,  // RGB: Green
+                0b110,  // RGB: Blue
+                0b110,  // RGB: Red
+                0b110,  // RGB: Green
+                0b110,  // RGB: Blue
+                0       // NONE
+            };
+
+            LEDDriver_setControl(0, data, 36);
+        }
+        else if (ledStartupSequenceIndex == 3)
+        {
+            LEDDriver_flushChanges();
+        }
+        else if (ledStartupSequenceIndex == 4)
+        {
+            LEDDriver_setShutdown(false);
+        }
+
+        ledStartupSequenceIndex++;
+    }
+
+    wasTransmitting = isTransmitting;
+}
+
 int main(void)
 {
     configureSystem();
     
     for (unsigned char i = 0; i < 10; i++)
     {
-        setLEDDisplay(1 << i);
+        setBarDisplay1(1 << i);
         delay(100);
     }
-    setLEDDisplay(0);
+    setBarDisplay1(0);
     flashMuzzleLight();
     delay(400);
     flashHitLight();
@@ -124,11 +240,15 @@ int main(void)
 
     while(true)
     {
+        I2CTransmitterEventHandler();
+
+        testLEDDriver();
+
         uint8_t received_data;
         if (tryGetPacket(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA
-            setLEDDisplay(received_data);
+            setBarDisplay1(received_data);
 #endif
 
             // Register a hit if we received a shot not from ourselves
@@ -238,7 +358,7 @@ void __interrupt () ISR(void)
 void setHealthDisplay(uint8_t value)
 {
     // Shift in zeros from the right and invert
-    setLEDDisplay( ~(0b1111111111 << value) );
+    setBarDisplay1( ~(0b1111111111 << value) );
 }
 
 void shoot(void)
@@ -255,26 +375,26 @@ void shoot(void)
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
     uint16_t num_shots_missed = g_num_shots_sent - g_num_shots_received;
-    setLEDDisplay(num_shots_missed);
+    setBarDisplay1(num_shots_missed);
 #endif
     g_num_shots_sent++;
 #endif
 
     flashMuzzleLight();
     //ammo--;
-    //setLEDDisplay(shot_data_to_send);
+    //setBarDisplay1(shot_data_to_send);
 }
 
 void flashMuzzleLight(void)
 {
-    PIN_MUZZLE_FLASH = 0;
+    LATCH_MUZZLE_FLASH = 0;
     NOP();
-    PIN_MUZZLE_FLASH = 1;
+    LATCH_MUZZLE_FLASH = 1;
 }
 
 void flashHitLight(void)
 {
-    PIN_HIT_LIGHT = 0;
+    LATCH_HIT_LIGHT = 0;
     NOP();
-    PIN_HIT_LIGHT = 1;
+    LATCH_HIT_LIGHT = 1;
 }

@@ -76,7 +76,7 @@ static void configurePWM3(void)
     // Internally supplied to CLC1
 
     // Supplied to Timer2 via external pin
-    PPS_TARGET_CARRIER_SIGNAL = PPS_SOURCE_PWM3_out;
+    PPS_OUT_REG_CARRIER_SIGNAL = PPS_OUT_VAL_PWM3_out;
     // Enable the output driver for the pin we're outputting the carrier signal
     // to. We're using the pin as both an output and an input, and in output
     // mode it can do both
@@ -100,7 +100,7 @@ static void configureTimer2(void)
     // exist. So I'm assuming T2PPS is what it meant. This could be used for two
     // things though: external reset signal selection, or clock selection, so we
     // should verify that it does what we intend
-    T2PPS = PPS_SOURCE_CARRIER_SIGNAL;
+    PPS_IN_REG_T2 = PPS_IN_VAL_CARRIER_SIGNAL;
     // DO NOT configure the carrier signal pin as an input. We need the output
     // driver to be active because we are outputting the PWM signal to the pin.
     // A pin configured as an output can still be read. The PWM configure
@@ -146,7 +146,7 @@ static void configureCLC2(void)
     // The output of CLC2 is provided internally to CLC1
 
     // For debugging: output modulation signal on a pin
-    PPS_TARGET_MODULATION_SIGNAL = PPS_SOURCE_LC2_out;
+    PPS_OUT_REG_MODULATION_SIGNAL = PPS_OUT_VAL_LC2_out;
     TRIS_MODULATION_SIGNAL = 0;
 }
 
@@ -161,7 +161,7 @@ static void configureCLC1(void)
     // going to wire them up to any of the gates
 
     // Take the modulation signal as an input
-    CLCIN0PPS = PPS_SOURCE_MODULATION_SIGNAL;
+    PPS_IN_REG_CLCIN0 = PPS_IN_VAL_MODULATION_SIGNAL;
     // DO NOT configure the modulation signal pin as an input. We need the
     // output driver to be active because we are outputting the modulation
     // signal to the pin. A pin configured as an output can still be read. The
@@ -199,7 +199,7 @@ static void configureCLC1(void)
     LC1POL = 0;
 
     // Direct the output of CLC1 to the IR LED
-    PPS_TARGET_IR_LED = PPS_SOURCE_LC1_out;
+    PPS_OUT_REG_IR_LED = PPS_OUT_VAL_LC1_out;
 }
 
 // TMR2 clocks at the carrier signal frequency
@@ -378,22 +378,22 @@ static void endTransmission(void)
 
 void transmitterEventHandler(void)
 {
+    if (!g_period_match)
+        return;
+
     static bool next_match_ends_transmission = false;
 
-    if (g_period_match)
+    if (next_match_ends_transmission)
     {
-        if (next_match_ends_transmission)
-        {
-            endTransmission();
-            next_match_ends_transmission = false;
-            g_period_match = false;
-        }
-        else
-        {
-            setNextPeriod(&next_match_ends_transmission);
-            g_period_match = false;
-        }
+        endTransmission();
+        next_match_ends_transmission = false;
     }
+    else
+    {
+        setNextPeriod(&next_match_ends_transmission);
+    }
+
+    g_period_match = false;
 }
 
 bool transmitAsync(uint16_t data, uint8_t length)

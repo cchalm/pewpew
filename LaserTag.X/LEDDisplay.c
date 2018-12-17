@@ -2,46 +2,19 @@
 
 #include <xc.h>
 
-// B4 - B7
-#define LED_MASK_PORTB 0b11110000
-// C0 - C5
-#define LED_MASK_PORTC 0b00111111
-
-// Mask where `1`s represent active-low LEDs
-#define ACTIVE_LOW_LEDS_MASK 0b0111000111
-
-#define PIN_LED0 RC0
-#define PIN_LED1 RC1
-#define PIN_LED2 RC2
-#define PIN_LED3 RC3
-#define PIN_LED4 RC4
-#define PIN_LED5 RC5
-#define PIN_LED6 RB4
-#define PIN_LED7 RB5
-#define PIN_LED8 RB6
-#define PIN_LED9 RB7
-
 void initializeLEDDisplay()
 {
     // Set all LEDs off
-    setLEDDisplay(0);
-
-    // Set appropriate pins as output
-    TRISB &= ~LED_MASK_PORTB;
-    TRISC &= ~LED_MASK_PORTC;
+    setBarDisplay1(0);
+    setBarDisplay2(0);
 }
 
-void setLEDDisplay(uint16_t bits)
+void setBarDisplay1(uint16_t bits)
 {
-    // Bit-to-pin mapping:
-    // MSB                                 LSB
-    // 9   8   7   6   5   4   3   2   1   0
-    // B7  B6  B5  B4  C5  C4  C3  C2  C1  C0
+    // TODO
+}
 
-    // Some LEDs are active-low. Invert those bits
-    bits ^= ACTIVE_LOW_LEDS_MASK;
-
-    // Map bits onto port latches
-    LATB = (LATB & ~LED_MASK_PORTB) | ((bits & 0b1111000000) >> 2);
-    LATC = (LATC & ~LED_MASK_PORTC) | (bits & 0b0000111111);
+void setBarDisplay2(uint16_t bits)
+{
+    // TODO
 }

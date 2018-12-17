@@ -1,47 +1,83 @@
-#include "LEDDisplay.h"
+#include "LEDDriverI2CInterface.h"
 
-#include <xc.h>
+#include "error.h"
+#include "i2cMaster.h"
 
-// B4 - B7
-#define LED_MASK_PORTB 0b11110000
-// C0 - C5
-#define LED_MASK_PORTC 0b00111111
+#include <stdbool.h>
+#include <string.h> // for memcpy
 
-// Mask where `1`s represent active-low LEDs
-#define ACTIVE_LOW_LEDS_MASK 0b0111000111
+// 37 bytes: register address + max 36 data packets
+static uint8_t g_data[37];
+static uint8_t g_address = 0b01111000; // I2C address of LED driver
 
-#define PIN_LED0 RC0
-#define PIN_LED1 RC1
-#define PIN_LED2 RC2
-#define PIN_LED3 RC3
-#define PIN_LED4 RC4
-#define PIN_LED5 RC5
-#define PIN_LED6 RB4
-#define PIN_LED7 RB5
-#define PIN_LED8 RB6
-#define PIN_LED9 RB7
+const uint8_t REG_SHUTDOWN          = 0x00;
+const uint8_t REG_PWM               = 0x01;
+const uint8_t REG_UPDATE            = 0x25;
+const uint8_t REG_CONTROL           = 0x26;
+const uint8_t REG_GLOBAL_CONTROL    = 0x4A;
+const uint8_t REG_RESET             = 0x4F;
 
-void initializeLEDDisplay()
+static bool isValidRange(uint8_t startIndex, uint8_t length)
 {
-    // Set all LEDs off
-    setLEDDisplay(0);
-
-    // Set appropriate pins as output
-    TRISB &= ~LED_MASK_PORTB;
-    TRISC &= ~LED_MASK_PORTC;
+    return startIndex + length <= 36;
 }
 
-void setLEDDisplay(uint16_t bits)
+static bool setRegisters(uint8_t registerAddress, uint8_t startIndex, uint8_t* data, uint8_t dataLen)
 {
-    // Bit-to-pin mapping:
-    // MSB                                 LSB
-    // 9   8   7   6   5   4   3   2   1   0
-    // B7  B6  B5  B4  C5  C4  C3  C2  C1  C0
+    if (!isValidRange(startIndex, dataLen))
+        fatal(ERROR_LED_DRIVER_INVALID_REG_RANGE);
 
-    // Some LEDs are active-low. Invert those bits
-    bits ^= ACTIVE_LOW_LEDS_MASK;
+    if (isTransmissionInProgress())
+        return false;
 
-    // Map bits onto port latches
-    LATB = (LATB & ~LED_MASK_PORTB) | ((bits & 0b1111000000) >> 2);
-    LATC = (LATC & ~LED_MASK_PORTC) | (bits & 0b0000111111);
+    g_data[0] = registerAddress + startIndex;
+    // Copy given data into our global data array
+    memcpy(g_data + 1, data, dataLen);
+
+    bool conflict = !transmitI2CMaster(g_address, g_data, dataLen + 1);
+
+    // We checked if a transmission was in progress above - if a transmission
+    // started between then and now, it must have been started by an ISR, which
+    // is not allowed
+    if (conflict)
+        fatal(ERROR_LED_DRIVER_TRANSMISSION_CONFLICT);
+
+    return true;
+}
+
+static bool setRegister(uint8_t registerAddress, uint8_t data)
+{
+    uint8_t dataArr[1];
+    dataArr[0] = data;
+    return setRegisters(registerAddress, 0, dataArr, 1);
+}
+
+bool LEDDriver_setShutdown(bool shutdown)
+{
+    return setRegister(REG_SHUTDOWN, shutdown ? 0 : 1);
+}
+
+bool LEDDriver_setPWM(uint8_t startIndex, uint8_t* pwm, uint8_t pwmLen)
+{
+    return setRegisters(REG_PWM, startIndex, pwm, pwmLen);
+}
+
+bool LEDDriver_flushChanges()
+{
+    return setRegister(REG_UPDATE, 0);
+}
+
+bool LEDDriver_setControl(uint8_t startIndex, uint8_t* control, uint8_t controlLen)
+{
+    return setRegisters(REG_CONTROL, startIndex, control, controlLen);
+}
+
+bool LEDDriver_setGlobalEnable(bool enable)
+{
+    return setRegister(REG_GLOBAL_CONTROL, enable ? 0 : 1);
+}
+
+bool LEDDriver_reset()
+{
+    return setRegister(REG_RESET, 0);
 }

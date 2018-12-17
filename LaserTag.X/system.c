@@ -1,6 +1,7 @@
 #include "system.h"
 
 #include "crc.h"
+#include "i2cMaster.h"
 #include "LEDDisplay.h"
 #include "realTimeClock.h"
 
@@ -17,23 +18,20 @@ void configureSystem(void)
     // Disable analog inputs. This fixes a read-modify-write issue with setting
     // individual output pins.
     ANSELA = 0;
-    ANSELB = 0;
     ANSELC = 0;
 
     initializeLEDDisplay();
-
     initializeRTC();
-
     initializeCRC();
+    initializeI2CMaster();
     
     LATA = 0b00110000;
-    LATB = 0b00000000;
     LATC = 0b00000000;
 
     // Set A4 - A5 to output
     TRISA &= ~0b110000;
-    // Set C6 - C7 to input
-    TRISC |= 0b11000000;
+    // Set C1 - C2 to input for user inputs, and C3 - C4 to input for MSSP
+    TRISC |= 0b11110;
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)
