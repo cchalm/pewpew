@@ -33,8 +33,8 @@
 
 #include "error.h"
 #include "i2cMaster.h"
-#include "LEDDisplay.h"
-#include "LEDDriverI2CInterface.h"
+#include "LEDs.h"
+#include "LEDDriver.h"
 #include "packetConstants.h"
 #include "packetReceiver.h"
 #include "packetTransmitter.h"
@@ -94,133 +94,124 @@ uint32_t g_num_shots_received = 0;
 
 void testLEDDriver()
 {
-    static int ledStartupSequenceIndex = 0;
-    static bool wasTransmitting = true;
+    // Reset all registers. No surprises
+    LEDDriver_reset();
 
-    bool isTransmitting = isTransmissionInProgress();
-
-    if (!isTransmitting && wasTransmitting)
     {
-        if (ledStartupSequenceIndex == 0)
-        {
-            // Reset all registers. No surprises
-            LEDDriver_reset();
-        }
-        else if (ledStartupSequenceIndex == 1)
-        {
-            uint8_t data[36] = {
-                255,    // Bar: Red
-                255,    // Bar: Red
-                255,    // Bar: Red
-                255,    // Bar: Green
-                255,    // Bar: Green
-                255,    // Bar: Green
-                255,    // Bar: Green
-                255,    // Bar: Green
-                255,    // Bar: Green
-                255,    // Bar: Green
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                20,     // Bar: Blue
-                255,    // RGB: Red
-                213,    // RGB: Green
-                213,    // RGB: Blue
-                255,    // RGB: Red
-                213,    // RGB: Green
-                213,    // RGB: Blue
-                255,    // RGB: Red
-                213,    // RGB: Green
-                213,    // RGB: Blue
-                255,    // RGB: Red
-                213,    // RGB: Green
-                213,    // RGB: Blue
-                255,    // RGB: Red
-                213,    // RGB: Green
-                213,    // RGB: Blue
-                0       // NONE
-            };
+        uint8_t data[36] = {
+            255,    // Bar: Red
+            255,    // Bar: Red
+            255,    // Bar: Red
+            255,    // Bar: Green
+            255,    // Bar: Green
+            255,    // Bar: Green
+            255,    // Bar: Green
+            255,    // Bar: Green
+            255,    // Bar: Green
+            255,    // Bar: Green
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            20,     // Bar: Blue
+            255,    // RGB: Red
+            213,    // RGB: Green
+            213,    // RGB: Blue
+            255,    // RGB: Red
+            213,    // RGB: Green
+            213,    // RGB: Blue
+            255,    // RGB: Red
+            213,    // RGB: Green
+            213,    // RGB: Blue
+            255,    // RGB: Red
+            213,    // RGB: Green
+            213,    // RGB: Blue
+            255,    // RGB: Red
+            213,    // RGB: Green
+            213,    // RGB: Blue
+            0       // NONE
+        };
 
-            LEDDriver_setPWM(0, data, 36);
-        }
-        else if (ledStartupSequenceIndex == 2)
-        {
-            uint8_t data[36] = {
-                0b001,  // Bar: Red
-                0b001,  // Bar: Red
-                0b001,  // Bar: Red
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b011,  // Bar: Green
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b111,  // Bar: Blue
-                0b110,  // RGB: Red
-                0b110,  // RGB: Green
-                0b111,  // RGB: Blue
-                0b110,  // RGB: Red
-                0b110,  // RGB: Green
-                0b110,  // RGB: Blue
-                0b111,  // RGB: Red
-                0b110,  // RGB: Green
-                0b111,  // RGB: Blue
-                0b110,  // RGB: Red
-                0b110,  // RGB: Green
-                0b110,  // RGB: Blue
-                0b110,  // RGB: Red
-                0b110,  // RGB: Green
-                0b110,  // RGB: Blue
-                0       // NONE
-            };
+        LEDDriver_setPWM(0, data, 36);
+    }
+    {
+        uint8_t data[36] = {
+            0b001,  // Bar: Red
+            0b001,  // Bar: Red
+            0b001,  // Bar: Red
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b111,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0b111,  // RGB: Red
+            0b110,  // RGB: Green
+            0b111,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0       // NONE
+        };
 
-            LEDDriver_setControl(0, data, 36);
-        }
-        else if (ledStartupSequenceIndex == 3)
-        {
-            LEDDriver_flushChanges();
-        }
-        else if (ledStartupSequenceIndex == 4)
-        {
-            LEDDriver_setShutdown(false);
-        }
-
-        ledStartupSequenceIndex++;
+        LEDDriver_setControl(0, data, 36);
     }
 
-    wasTransmitting = isTransmitting;
+    LEDDriver_flushChanges();
+    LEDDriver_setShutdown(false);
 }
 
 int main(void)
 {
     configureSystem();
-    
+
+    testLEDDriver();
+
     for (unsigned char i = 0; i < 10; i++)
     {
         setBarDisplay1(1 << i);
+        setBarDisplay2(1 << i);
+        i2cMaster_flushQueue();
         delay(100);
     }
+
     setBarDisplay1(0);
+    setBarDisplay2(0);
+    i2cMaster_flushQueue();
+
     flashMuzzleLight();
     delay(400);
     flashHitLight();
     delay(400);
+
+    setBarDisplay1(0b1111111111);
+    setBarDisplay2(0b1111111111);
+    i2cMaster_flushQueue();
 
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;
@@ -240,9 +231,7 @@ int main(void)
 
     while(true)
     {
-        I2CTransmitterEventHandler();
-
-        testLEDDriver();
+        i2cMaster_eventHandler();
 
         uint8_t received_data;
         if (tryGetPacket(&received_data))
@@ -355,12 +344,6 @@ void __interrupt () ISR(void)
     rtcTimerInterruptHandler();
 }
 
-void setHealthDisplay(uint8_t value)
-{
-    // Shift in zeros from the right and invert
-    setBarDisplay1( ~(0b1111111111 << value) );
-}
-
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
@@ -383,18 +366,4 @@ void shoot(void)
     flashMuzzleLight();
     //ammo--;
     //setBarDisplay1(shot_data_to_send);
-}
-
-void flashMuzzleLight(void)
-{
-    LATCH_MUZZLE_FLASH = 0;
-    NOP();
-    LATCH_MUZZLE_FLASH = 1;
-}
-
-void flashHitLight(void)
-{
-    LATCH_HIT_LIGHT = 0;
-    NOP();
-    LATCH_HIT_LIGHT = 1;
 }

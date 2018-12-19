@@ -2,7 +2,7 @@
 
 #include "crc.h"
 #include "i2cMaster.h"
-#include "LEDDisplay.h"
+#include "LEDs.h"
 #include "realTimeClock.h"
 
 #include <xc.h>
@@ -20,10 +20,10 @@ void configureSystem(void)
     ANSELA = 0;
     ANSELC = 0;
 
-    initializeLEDDisplay();
+    initializeLEDs();
     initializeRTC();
     initializeCRC();
-    initializeI2CMaster();
+    i2cMaster_initialize();
     
     LATA = 0b00110000;
     LATC = 0b00000000;

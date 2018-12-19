@@ -1,6 +1,6 @@
 #include "error.h"
 
-#include "LEDDisplay.h"
+#include "LEDs.h"
 #include "system.h"
 
 #include <stdint.h>

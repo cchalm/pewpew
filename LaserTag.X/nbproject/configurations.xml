@@ -5,7 +5,7 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>system.h</itemPath>
-      <itemPath>LEDDisplay.h</itemPath>
+      <itemPath>LEDs.h</itemPath>
       <itemPath>realTimeClock.h</itemPath>
       <itemPath>error.h</itemPath>
       <itemPath>crc.h</itemPath>
@@ -15,7 +15,7 @@
       <itemPath>i2cMaster.h</itemPath>
       <itemPath>pins.h</itemPath>
       <itemPath>pps.h</itemPath>
-      <itemPath>LEDDriverI2CInterface.h</itemPath>
+      <itemPath>LEDDriver.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -26,14 +26,14 @@
                    projectFiles="true">
       <itemPath>main.c</itemPath>
       <itemPath>system.c</itemPath>
-      <itemPath>LEDDisplay.c</itemPath>
+      <itemPath>LEDs.c</itemPath>
       <itemPath>realTimeClock.c</itemPath>
       <itemPath>error.c</itemPath>
       <itemPath>crc.c</itemPath>
       <itemPath>packetReceiver.c</itemPath>
       <itemPath>packetTransmitter.c</itemPath>
       <itemPath>i2cMaster.c</itemPath>
-      <itemPath>LEDDriverI2CInterface.c</itemPath>
+      <itemPath>LEDDriver.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
