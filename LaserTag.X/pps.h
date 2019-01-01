@@ -48,13 +48,13 @@
 #define PPS_IN_REG_T0CKI    T0CKIPPS
 #define PPS_IN_REG_T1CKI    T1CKIPPS
 #define PPS_IN_REG_T1G      T1GPPS
-#define PPS_IN_REG_T2CKI    T2CKIPPS
+#define PPS_IN_REG_T2CKI    T2PPS // NOTE: differs from documentation
 #define PPS_IN_REG_T3CKI    T3CKIPPS
 #define PPS_IN_REG_T3G      T3GPPS
-#define PPS_IN_REG_T4CKI    T4CKIPPS
+#define PPS_IN_REG_T4CKI    T4PPS // NOTE: differs from documentation
 #define PPS_IN_REG_T5CKI    T5CKIPPS
 #define PPS_IN_REG_T5G      T5GPPS
-#define PPS_IN_REG_T6CKI    T6CKIPPS
+#define PPS_IN_REG_T6CKI    T6PPS // NOTE: differs from documentation
 #define PPS_IN_REG_CCP1     CCP1PPS
 #define PPS_IN_REG_CCP2     CCP2PPS
 #define PPS_IN_REG_CWG1IN   CWG1INPPS

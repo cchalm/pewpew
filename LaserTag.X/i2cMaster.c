@@ -1,12 +1,19 @@
 #include "i2cMaster.h"
 
 #include "error.h"
+#include "../LaserTagUtils.X/stringQueue.h"
 #include "pins.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
 #include <xc.h>
+
+#define OUTGOING_MESSAGE_QUEUE_LENGTH 128
+
+uint8_t g_outgoing_message_queue_storage[OUTGOING_MESSAGE_QUEUE_LENGTH];
+string_queue_t g_outgoing_message_queue;
+bool g_outgoing_message_in_progress = false;
 
 void i2cMaster_initialize()
 {
@@ -35,84 +42,19 @@ void i2cMaster_initialize()
 
     // Enable slew rate control for 400kHz mode
     SSP1STATbits.SMP = 0;
-}
-
-#define OUTGOING_DATA_QUEUE_LENGTH 128
-
-uint8_t g_outgoing_data_queue[OUTGOING_DATA_QUEUE_LENGTH];
-uint8_t g_outgoing_data_queue_index = 0;
-// Exclusive end index of the data currently in the queue
-uint8_t g_outgoing_data_queue_end_index = 0;
-// A bitfield with '1's at the indexes of bytes in the data queue that are
-// addresses
-uint8_t g_outgoing_data_address_indexes[OUTGOING_DATA_QUEUE_LENGTH / 8];
-
-static uint8_t increment(uint8_t index)
-{
-    if (index == OUTGOING_DATA_QUEUE_LENGTH - 1)
-        return 0;
-
-    return index + 1;
-}
-
-static uint8_t decrement(uint8_t index)
-{
-    if (index == 0)
-        return OUTGOING_DATA_QUEUE_LENGTH - 1;
-
-    return index - 1;
-}
-
-static void setIsAddress(uint8_t index, bool isAddress)
-{
-    if (isAddress)
-        g_outgoing_data_address_indexes[index / 8] |= (1 << (index % 8));
-    else
-        g_outgoing_data_address_indexes[index / 8] &= ~(1 << (index % 8));
-}
-
-static bool isAddress(uint8_t index)
-{
-    return (g_outgoing_data_address_indexes[index / 8] & (1 << (index % 8))) != 0;
-}
-
-static bool isNextByteAddress()
-{
-    return isAddress(g_outgoing_data_queue_index);
-}
-
-static void incrementEndIndex()
-{
-    g_outgoing_data_queue_end_index = increment(g_outgoing_data_queue_end_index);
-    if (g_outgoing_data_queue_end_index == g_outgoing_data_queue_index)
-        fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
-}
-
-static void incrementIndex()
-{
-    g_outgoing_data_queue_index = increment(g_outgoing_data_queue_index);
-}
-
-static void pushData(uint8_t data, bool isAddress)
-{
-    setIsAddress(g_outgoing_data_queue_end_index, isAddress);
-
-    g_outgoing_data_queue[g_outgoing_data_queue_end_index] = data;
-    incrementEndIndex();
+    
+    g_outgoing_message_queue = stringQueue_create(g_outgoing_message_queue_storage, OUTGOING_MESSAGE_QUEUE_LENGTH);
 }
 
 void i2cMaster_transmit(uint8_t address, uint8_t* data, uint8_t data_len)
 {
-    pushData(address, true);
-    for (int i = 0; i < data_len; i++)
-    {
-        pushData(data[i], false);
-    }
+    stringQueue_pushPartial(&g_outgoing_message_queue, &address, 1, false);
+    stringQueue_pushPartial(&g_outgoing_message_queue, data, data_len, true);
 }
 
 static bool isQueueEmpty()
 {
-    return g_outgoing_data_queue_index == g_outgoing_data_queue_end_index;
+    return stringQueue_size(&g_outgoing_message_queue) == 0;
 }
 
 typedef enum
@@ -156,8 +98,11 @@ static void stateChange_stopTransmission()
 
 static void stateChange_writeNextByteToBuffer()
 {
-    SSP1BUF = g_outgoing_data_queue[g_outgoing_data_queue_index];
-    incrementIndex();
+    uint8_t next_byte;
+    uint8_t out_length;
+    bool next_byte_is_last = stringQueue_pop(&g_outgoing_message_queue, 1, &next_byte, &out_length);
+    SSP1BUF = next_byte;
+    g_outgoing_message_in_progress = !next_byte_is_last;
 
     if (WCOL == 1)
     {
@@ -192,7 +137,7 @@ void i2cMaster_eventHandler(void)
             
             if (isQueueEmpty())
                 stateChange_stopTransmission();
-            else if (isNextByteAddress())
+            else if (!g_outgoing_message_in_progress)
                 //stateChange_startAnotherTransmission();
                 stateChange_stopTransmission();
             else

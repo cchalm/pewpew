@@ -1,0 +1,100 @@
+#include "queue.h"
+
+queue_t queue_create(uint8_t* storage, uint8_t length)
+{
+    queue_t queue = {
+        .storage = storage,
+        .length = length,
+        .index = 0,
+        // Special condition: end_index is set to length when the queue is full
+        .end_index = 0,
+    };
+    
+    return queue;
+}
+
+static uint8_t increment(uint8_t index, uint8_t end)
+{
+    // Increment our local copy
+    index++;
+
+    // Wrap around to zero if we're at the end
+    if (index == end)
+        return 0;
+
+    return index;
+}
+
+static void incrementIndex(queue_t* queue)
+{
+    queue->index = increment(queue->index, queue->length);
+}
+
+static void incrementEndIndex(queue_t* queue)
+{
+    queue->end_index = increment(queue->end_index, queue->length);
+}
+
+static bool isEmpty(queue_t* queue)
+{
+    return queue->end_index == queue->index;
+}
+
+static bool isFull(queue_t* queue)
+{
+    return queue->end_index == queue->length;
+}
+
+// When setting from "full" to "not full", this must be called *before*
+// incrementing queue->index
+static void setIsFull(queue_t* queue, bool set_is_full)
+{
+    if (set_is_full)
+        queue->end_index = queue->length;
+    else if (isFull(queue))
+        queue->end_index = queue->index;
+}
+
+bool queue_push(queue_t* queue, uint8_t data)
+{
+    if (isFull(queue))
+        return false;
+    
+    queue->storage[queue->end_index] = data;
+    incrementEndIndex(queue);
+    
+    if (queue->index == queue->end_index)
+        setIsFull(queue, true);
+    
+    return true;
+}
+
+bool queue_pop(queue_t* queue, uint8_t* data_out)
+{
+    if (isEmpty(queue))
+        return false;
+    
+    *data_out = queue->storage[queue->index];
+    setIsFull(queue, false);
+    incrementIndex(queue);
+    
+    return true;
+}
+
+uint8_t queue_capacity(queue_t* queue)
+{
+    return queue->length;
+}
+
+uint8_t queue_size(queue_t* queue)
+{
+    if (isFull(queue))
+        return queue->length;
+
+    return queue->end_index - queue->index;
+}
+
+uint8_t queue_freeCapacity(queue_t* queue)
+{
+    return queue_capacity(queue) - queue_size(queue);
+}
