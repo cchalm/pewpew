@@ -1,3 +1,4 @@
+// clang-format off
 // PIC16F1619 Configuration Bit Settings
 
 // 'C' source line config statements
@@ -30,6 +31,7 @@
 
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
+// clang-format on
 
 #include "error.h"
 #include "IRReceiver.h"
@@ -51,7 +53,7 @@ int main(void)
 
     uint16_t loop_counter = 0;
 
-    while(true)
+    while (true)
     {
         irTransmitter_eventHandler();
         irReceiver_eventHandler();
@@ -76,7 +78,7 @@ int main(void)
 }
 
 // Main Interrupt Service Routine (ISR)
-void __interrupt () ISR(void)
+void __interrupt() ISR(void)
 {
     irTransmitter_interruptHandler();
     irReceiver_interruptHandler();

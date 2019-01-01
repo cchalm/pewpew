@@ -1,5 +1,5 @@
 #ifndef PACKETTRANSMITTER_H
-#define	PACKETTRANSMITTER_H
+#define PACKETTRANSMITTER_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,5 +9,4 @@
 // returns true. Transmits with extra error checking bits
 bool transmitPacketAsync(uint8_t packet);
 
-#endif	/* PACKETTRANSMITTER_H */
-
+#endif /* PACKETTRANSMITTER_H */

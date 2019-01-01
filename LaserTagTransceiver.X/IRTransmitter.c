@@ -262,15 +262,15 @@ static void setNextPeriod(bool* next_match_ends_transmission_out)
             PR2 = PULSE_GAP_LENGTH_TMR2_CYCLES - 1;
         }
     }
-    else // output is low
+    else  // output is low
     {
         // Output is low. Set the period of the next high pulse
 
         transmission_data_index++;
 
-        TMR2_t pulse_width =
-                ((g_data_to_transmit >> (g_data_length - transmission_data_index)) & 1) ?
-                    ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
+        TMR2_t pulse_width = ((g_data_to_transmit >> (g_data_length - transmission_data_index)) & 1)
+                                 ? ONE_PULSE_LENGTH_TMR2_CYCLES
+                                 : ZERO_PULSE_LENGTH_TMR2_CYCLES;
 
         // Load the desired pulse length into the modulation timer's period
         // register. The timer resets to zero on the clock cycle following a

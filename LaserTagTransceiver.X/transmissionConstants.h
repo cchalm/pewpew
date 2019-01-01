@@ -1,20 +1,21 @@
 #ifndef TRANSMISSIONCONSTANTS_H
-#define	TRANSMISSIONCONSTANTS_H
+#define TRANSMISSIONCONSTANTS_H
 
-#include "crcConstants.h"
 #include "IRReceiverStats.h"
+#include "crcConstants.h"
 
 // The minimum difference between two pulse lengths to guarantee that they can
 // be unambiguously distinguished by the receiver
-#define PULSE_LENGTH_MIN_DIFF_MOD_CYCLES \
-        ((((RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10) \
-       + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10)) / 10) + 1)
+#define PULSE_LENGTH_MIN_DIFF_MOD_CYCLES                          \
+    ((((RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10)    \
+       + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10)) \
+      / 10)                                                       \
+     + 1)
 
 // Pulse lengths in terms of modulation cycles
 #define ZERO_PULSE_LENGTH_MOD_CYCLES (RECEIVER_PULSE_MIN_CYCLES)
-#define ONE_PULSE_LENGTH_MOD_CYCLES \
-        ((ZERO_PULSE_LENGTH_MOD_CYCLES) + (PULSE_LENGTH_MIN_DIFF_MOD_CYCLES))
-#define PULSE_GAP_LENGTH_MOD_CYCLES  (RECEIVER_GAP_MIN_CYCLES)
+#define ONE_PULSE_LENGTH_MOD_CYCLES ((ZERO_PULSE_LENGTH_MOD_CYCLES) + (PULSE_LENGTH_MIN_DIFF_MOD_CYCLES))
+#define PULSE_GAP_LENGTH_MOD_CYCLES (RECEIVER_GAP_MIN_CYCLES)
 
 // Minimum gap between distinct transmissions in modulation cycles. 2x pulse
 // gap, truncated to nearest integer number of cycles
@@ -56,5 +57,4 @@ const volatile uint32_t MODULATION_FREQ_eval = MODULATION_FREQ;
 const volatile uint8_t MAX_TRANSMISSION_LENGTH_eval = MAX_TRANSMISSION_LENGTH;
 #endif
 
-#endif	/* TRANSMISSIONCONSTANTS_H */
-
+#endif /* TRANSMISSIONCONSTANTS_H */

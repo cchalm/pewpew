@@ -1,8 +1,8 @@
 #include "system.h"
 
-#include "i2cSlave.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
+#include "i2cSlave.h"
 
 #include <xc.h>
 
@@ -11,8 +11,9 @@ void configureSystem(void)
     // Configure internal oscillator for 32MHz (16MHz x2 PLL)
     OSCCONbits.IRCF = 0b1111;
 
-    INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
-    INTCONbits.PEIE = 1; // Enable peripheral interrupts
+    INTCONbits.GIE = 0;   // Disable active interrupts. This should be set to 1
+                          // before starting program logic
+    INTCONbits.PEIE = 1;  // Enable peripheral interrupts
 
     // Disable analog inputs. This fixes a read-modify-write issue with setting
     // individual output pins.
@@ -24,7 +25,8 @@ void configureSystem(void)
     i2cSlave_initialize();
 
     // Wait for the oscillator to be ready before continuing
-    while (!OSTS);
+    while (!OSTS)
+        ;
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)
@@ -43,9 +45,7 @@ void delay(uint32_t d)
 {
     _delay_gen(d, 600);
 }
-
 void delayTiny(uint32_t d)
 {
     _delay_gen(d, 0);
 }
-

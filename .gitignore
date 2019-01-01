@@ -50,3 +50,6 @@
 *.X/nbproject/Makefile-*
 *.X/disassembly/
 *.map
+
+# Vim
+*.swp

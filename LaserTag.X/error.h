@@ -1,5 +1,5 @@
 #ifndef ERROR_H
-#define	ERROR_H
+#define ERROR_H
 
 #include <stdint.h>
 
@@ -17,5 +17,4 @@ enum
 
 void fatal(uint8_t error_code);
 
-#endif	/* ERROR_H */
-
+#endif /* ERROR_H */

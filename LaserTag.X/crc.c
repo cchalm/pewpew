@@ -47,7 +47,6 @@ void initializeCRC(void)
 {
     populateCRCLookup();
 }
-
 uint8_t crc(uint8_t data)
 {
     return CRC_LOOKUP[data];

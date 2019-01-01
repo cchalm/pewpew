@@ -1,5 +1,5 @@
 #ifndef LEDDISPLAY_H
-#define	LEDDISPLAY_H
+#define LEDDISPLAY_H
 
 #include <stdint.h>
 
@@ -21,4 +21,4 @@ void setRGB3(uint8_t r, uint8_t g, uint8_t b);
 void setRGB4(uint8_t r, uint8_t g, uint8_t b);
 void setRGB5(uint8_t r, uint8_t g, uint8_t b);
 
-#endif	/* LEDDISPLAY_H */
+#endif /* LEDDISPLAY_H */

@@ -1,9 +1,10 @@
 #ifndef CRCCONSTANTS_H
-#define	CRCCONSTANTS_H
+#define CRCCONSTANTS_H
 
 #define CRC_LENGTH 5
 
-// CRC width in bits and polynomial recommended by https://users.ece.cmu.edu/~koopman/crc/
+// CRC width in bits and polynomial recommended by
+// https://users.ece.cmu.edu/~koopman/crc/
 // to achieve a Hamming Distance of 4 with a maximum data word legnth of 10.
 // Note the "implicit +1" notation used by Koopman. We will always use data
 // words of length 8, for ease of use, creating a 13-bit codeword (data + crc)
@@ -18,5 +19,4 @@
 const volatile uint8_t CRC_LENGTH_eval = CRC_LENGTH;
 #endif
 
-#endif	/* CRCCONSTANTS_H */
-
+#endif /* CRCCONSTANTS_H */

@@ -13,20 +13,19 @@ string_queue_t stringQueue_create(uint8_t* storage, uint8_t length)
     // we can use integer division to calculate
     uint8_t bitarray_length = (length + 8) / 9;
     uint8_t queue_length = length - bitarray_length;
-    string_queue_t string_queue = {
-        .byte_queue = queue_create(storage, queue_length),
-        .string_end_flags = bitQueue_create(storage + queue_length, bitarray_length)
-    };
+    string_queue_t string_queue = {.byte_queue = queue_create(storage, queue_length),
+                                   .string_end_flags = bitQueue_create(storage + queue_length, bitarray_length)};
 
     return string_queue;
 }
 
 bool stringQueue_push(string_queue_t* string_queue, uint8_t* string, uint8_t string_length)
-{    
+{
     return stringQueue_pushPartial(string_queue, string, string_length, true);
 }
 
-bool stringQueue_pushPartial(string_queue_t* string_queue, uint8_t* partial_string, uint8_t partial_string_length, bool is_end_of_string)
+bool stringQueue_pushPartial(string_queue_t* string_queue, uint8_t* partial_string, uint8_t partial_string_length,
+                             bool is_end_of_string)
 {
     // Check if the bytes of the string will fit in the byte queue. No need to
     // check the bit queue, it fits at least as many bits as the byte queue fits

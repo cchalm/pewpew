@@ -9,7 +9,7 @@ queue_t queue_create(uint8_t* storage, uint8_t length)
         // Special condition: end_index is set to length when the queue is full
         .end_index = 0,
     };
-    
+
     return queue;
 }
 
@@ -39,12 +39,10 @@ static bool isEmpty(queue_t* queue)
 {
     return queue->end_index == queue->index;
 }
-
 static bool isFull(queue_t* queue)
 {
     return queue->end_index == queue->length;
 }
-
 // When setting from "full" to "not full", this must be called *before*
 // incrementing queue->index
 static void setIsFull(queue_t* queue, bool set_is_full)
@@ -59,13 +57,13 @@ bool queue_push(queue_t* queue, uint8_t data)
 {
     if (isFull(queue))
         return false;
-    
+
     queue->storage[queue->end_index] = data;
     incrementEndIndex(queue);
-    
+
     if (queue->index == queue->end_index)
         setIsFull(queue, true);
-    
+
     return true;
 }
 
@@ -73,11 +71,11 @@ bool queue_pop(queue_t* queue, uint8_t* data_out)
 {
     if (isEmpty(queue))
         return false;
-    
+
     *data_out = queue->storage[queue->index];
     setIsFull(queue, false);
     incrementIndex(queue);
-    
+
     return true;
 }
 
@@ -85,7 +83,6 @@ uint8_t queue_capacity(queue_t* queue)
 {
     return queue->length;
 }
-
 uint8_t queue_size(queue_t* queue)
 {
     if (isFull(queue))

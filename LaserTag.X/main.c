@@ -1,3 +1,4 @@
+// clang-format off
 // PIC16F1619 Configuration Bit Settings
 
 // 'C' source line config statements
@@ -23,18 +24,19 @@
 #pragma config LVP = ON         // Low-Voltage Programming Enable (Low-voltage programming enabled)
 
 // CONFIG3
-#pragma config WDTCPS = WDTCPS1F// WDT Period Select (Software Control (WDTPS))
-#pragma config WDTE = OFF       // Watchdog Timer Enable (WDT disabled)
-#pragma config WDTCWS = WDTCWSSW// WDT Window Select (Software WDT window size control (WDTWS bits))
-#pragma config WDTCCS = SWC     // WDT Input Clock Selector (Software control, controlled by WDTCS bits)
+#pragma config WDTCPS = WDTCPS1F  // WDT Period Select (Software Control (WDTPS))
+#pragma config WDTE = OFF         // Watchdog Timer Enable (WDT disabled)
+#pragma config WDTCWS = WDTCWSSW  // WDT Window Select (Software WDT window size control (WDTWS bits))
+#pragma config WDTCCS = SWC       // WDT Input Clock Selector (Software control, controlled by WDTCS bits)
 
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
+// clang-format on
 
+#include "LEDDriver.h"
+#include "LEDs.h"
 #include "error.h"
 #include "i2cMaster.h"
-#include "LEDs.h"
-#include "LEDDriver.h"
 #include "packetConstants.h"
 #include "packetReceiver.h"
 #include "packetTransmitter.h"
@@ -51,7 +53,7 @@
 // Shots per second
 #define FIRE_RATE 50
 // Delay between shots in ms
-#define SHOT_DELAY_MS 1000/(FIRE_RATE)
+#define SHOT_DELAY_MS 1000 / (FIRE_RATE)
 #define FULL_AUTO true
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
@@ -92,49 +94,49 @@ uint32_t g_num_shots_sent = 0;
 uint32_t g_num_shots_received = 0;
 #endif
 
-void testLEDDriver()
+static void testLEDDriver()
 {
     // Reset all registers. No surprises
     LEDDriver_reset();
 
     {
         uint8_t data[36] = {
-            255,    // Bar: Red
-            255,    // Bar: Red
-            255,    // Bar: Red
-            255,    // Bar: Green
-            255,    // Bar: Green
-            255,    // Bar: Green
-            255,    // Bar: Green
-            255,    // Bar: Green
-            255,    // Bar: Green
-            255,    // Bar: Green
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            20,     // Bar: Blue
-            255,    // RGB: Red
-            213,    // RGB: Green
-            213,    // RGB: Blue
-            255,    // RGB: Red
-            213,    // RGB: Green
-            213,    // RGB: Blue
-            255,    // RGB: Red
-            213,    // RGB: Green
-            213,    // RGB: Blue
-            255,    // RGB: Red
-            213,    // RGB: Green
-            213,    // RGB: Blue
-            255,    // RGB: Red
-            213,    // RGB: Green
-            213,    // RGB: Blue
-            0       // NONE
+            255,  // Bar: Red
+            255,  // Bar: Red
+            255,  // Bar: Red
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            0     // NONE
         };
 
         LEDDriver_setPWM(0, data, 36);
@@ -186,6 +188,22 @@ void testLEDDriver()
     LEDDriver_setShutdown(false);
 }
 
+static count_t getShotDelay()
+{
+#ifdef RANDOMIZE_SHOT_DELAY
+    // Rand is too slow, so sweep through the range instead
+    static uint16_t delay = MIN_SHOT_DELAY_MS;
+    static uint8_t inc = 1;
+    g_shot_enable_ms_count = getMillisecondCount() + delay;
+    delay += inc;
+    if (delay > MAX_SHOT_DELAY_MS)
+        delay = MIN_SHOT_DELAY_MS;
+    inc++;
+#else
+    g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
+#endif
+}
+
 int main(void)
 {
     configureSystem();
@@ -229,7 +247,7 @@ int main(void)
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
-    while(true)
+    while (true)
     {
         i2cMaster_eventHandler();
 
@@ -287,25 +305,11 @@ int main(void)
                 shoot();
             }
 
-            // Putting the following lines outside the ammo conditional means
-            // that you can only get a "not enough ammo" signal, like a sound,
-            // at the rate of fire of the tagger, not as fast as you can
-            // press the trigger
+            // Putting the following lines outside the ammo conditional means that you can only get a "not enough ammo"
+            // signal, like a sound, at the rate of fire of the tagger, not as fast as you can press the trigger
 
-            // Indicate that a shot has just occurred and store the time at
-            // which we can shoot again
-#ifdef RANDOMIZE_SHOT_DELAY
-            // Rand is too slow, so sweep through the range instead
-            static uint16_t delay = MIN_SHOT_DELAY_MS;
-            static uint8_t inc = 1;
-            g_shot_enable_ms_count = getMillisecondCount() + delay;
-            delay += inc;
-            if (delay > MAX_SHOT_DELAY_MS)
-                delay = MIN_SHOT_DELAY_MS;
-            inc++;
-#else
-            g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
-#endif
+            // Indicate that a shot has just occurred and store the time at which we can shoot again
+            g_shot_enable_ms_count = getMillisecondCount() + getShotDelay();
 
             g_can_shoot = false;
         }
@@ -322,14 +326,14 @@ int main(void)
             }
         }
 
-        //if (!mag_in)
+        // if (!mag_in)
         //    setHealthDisplay(0);
 
         if (mag_in && mag_was_out)
         {
             // Mag has been put back in, reload
             ammo = MAX_AMMO;
-            //setHealthDisplay(ammo);
+            // setHealthDisplay(ammo);
         }
 
         // Update "was" variables
@@ -339,21 +343,19 @@ int main(void)
 }
 
 // Main Interrupt Service Routine (ISR)
-void __interrupt () ISR(void)
+void __interrupt() ISR(void)
 {
     rtcTimerInterruptHandler();
 }
-
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) |
-            ((TMR6%2) << (PACKET_LENGTH - 1));
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 % 2) << (PACKET_LENGTH - 1));
 #endif
 
     bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);
     /*if (transmissionInProgress)
-        fatal(ERROR_TRANSMISSION_OVERLAP);*/ // TODO figure out what to do with this with the new separate transceiver
+        fatal(ERROR_TRANSMISSION_OVERLAP);*/  // TODO figure out what to do with this with the new separate transceiver
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
@@ -364,6 +366,6 @@ void shoot(void)
 #endif
 
     flashMuzzleLight();
-    //ammo--;
-    //setBarDisplay1(shot_data_to_send);
+    // ammo--;
+    // setBarDisplay1(shot_data_to_send);
 }

@@ -1,5 +1,5 @@
 #ifndef PINS_H
-#define	PINS_H
+#define PINS_H
 
 #include "pps.h"
 
@@ -43,5 +43,4 @@
 #define PPS_OUT_VAL_SDA PPS_OUT_VAL_SDO_SDA
 #define TRIS_SDA TRISA5
 
-#endif	/* PINS_H */
-
+#endif /* PINS_H */

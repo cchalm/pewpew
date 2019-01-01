@@ -1,7 +1,7 @@
 #include "i2cMaster.h"
 
-#include "error.h"
 #include "../LaserTagUtils.X/stringQueue.h"
+#include "error.h"
 #include "pins.h"
 
 #include <stdbool.h>
@@ -20,19 +20,20 @@ void i2cMaster_initialize()
     // Assign pins
     PPS_IN_REG_SCL = PPS_IN_VAL_SCL;
     PPS_IN_REG_SDA = PPS_IN_VAL_SDA;
-    
+
     PPS_OUT_REG_SCL = PPS_OUT_VAL_SCL;
     PPS_OUT_REG_SDA = PPS_OUT_VAL_SDA;
 
     // Set SCL and SDA pins to input
     TRIS_SCL = 1;
     TRIS_SDA = 1;
-    
+
     SSP1CON1bits.SSPEN = 1;
     // Select I2C Master mode
     SSP1CON1bits.SSPM = 0b1000;
-    
-    // Clock divider. For I2C, ADD must be 3 or greater, according to http://ww1.microchip.com/downloads/en/DeviceDoc/40001770D.pdf
+
+    // Clock divider. For I2C, ADD must be 3 or greater, according to
+    // http://ww1.microchip.com/downloads/en/DeviceDoc/40001770D.pdf
     // f = Fosc / ((ADD + 1) * 4)
     // With ADD == 3 and Fosc == 32MHz, f == 2MHz
     // Max clock 400kHz, according to http://www.issi.com/WW/pdf/31FL3236.pdf
@@ -42,7 +43,7 @@ void i2cMaster_initialize()
 
     // Enable slew rate control for 400kHz mode
     SSP1STATbits.SMP = 0;
-    
+
     g_outgoing_message_queue = stringQueue_create(g_outgoing_message_queue_storage, OUTGOING_MESSAGE_QUEUE_LENGTH);
 }
 
@@ -57,12 +58,11 @@ static bool isQueueEmpty()
     return stringQueue_size(&g_outgoing_message_queue) == 0;
 }
 
-typedef enum
-{
+typedef enum {
     I2C_STATE_IDLE,
-    I2C_STATE_START,            // Transmitted start or repeated start signal, ready to transmit data
-    I2C_STATE_ACK,              // Transmitted data and received ACK or NACK
-    I2C_STATE_STOP              // Transmitted stop signal
+    I2C_STATE_START,  // Transmitted start or repeated start signal, ready to transmit data
+    I2C_STATE_ACK,    // Transmitted data and received ACK or NACK
+    I2C_STATE_STOP    // Transmitted stop signal
 } i2cModuleState_t;
 
 i2cModuleState_t g_i2c_module_state = I2C_STATE_IDLE;
@@ -77,7 +77,6 @@ static void stateChange_idle()
 {
     g_i2c_module_state = I2C_STATE_IDLE;
 }
-
 static void stateChange_startTransmission()
 {
     SSP1CON2bits.SEN = 1;
@@ -116,7 +115,7 @@ void i2cMaster_eventHandler(void)
 {
     // Detecting and handling the SSP1 interrupt flag in a non-interrupting way,
     // as the handling code is not urgent
-    
+
     if (SSP1IF)
     {
         // Five possible reasons the interrupt flag is set:
@@ -134,11 +133,11 @@ void i2cMaster_eventHandler(void)
         {
             if (SSP1CON2bits.ACKSTAT)
                 fatal(ERROR_I2C_NO_ACK);
-            
+
             if (isQueueEmpty())
                 stateChange_stopTransmission();
             else if (!g_outgoing_message_in_progress)
-                //stateChange_startAnotherTransmission();
+                // stateChange_startAnotherTransmission();
                 stateChange_stopTransmission();
             else
                 stateChange_writeNextByteToBuffer();

@@ -4,20 +4,20 @@
 #include "i2cMaster.h"
 
 #include <stdbool.h>
-#include <string.h> // for memcpy
+#include <string.h>  // for memcpy
 
 // 37 bytes: register address + max 36 data packets
 // TODO investigate whether we need this to be a global variable, or if we can
 // efficiently create function-local arrays
 static uint8_t g_data[37];
-static uint8_t g_address = 0b01111000; // I2C address of LED driver
+static uint8_t g_address = 0b01111000;  // I2C address of LED driver
 
-const uint8_t REG_SHUTDOWN          = 0x00;
-const uint8_t REG_PWM               = 0x01;
-const uint8_t REG_UPDATE            = 0x25;
-const uint8_t REG_CONTROL           = 0x26;
-const uint8_t REG_GLOBAL_CONTROL    = 0x4A;
-const uint8_t REG_RESET             = 0x4F;
+const uint8_t REG_SHUTDOWN = 0x00;
+const uint8_t REG_PWM = 0x01;
+const uint8_t REG_UPDATE = 0x25;
+const uint8_t REG_CONTROL = 0x26;
+const uint8_t REG_GLOBAL_CONTROL = 0x4A;
+const uint8_t REG_RESET = 0x4F;
 
 static bool isValidRange(uint8_t start_index, uint8_t length)
 {
@@ -57,7 +57,6 @@ void LEDDriver_flushChanges()
 {
     setRegister(REG_UPDATE, 0);
 }
-
 void LEDDriver_setControl(uint8_t start_index, uint8_t* control, uint8_t control_len)
 {
     setRegisters(REG_CONTROL, start_index, control, control_len);

@@ -8,8 +8,8 @@
 void initializeLEDs()
 {
     // Set all LEDs off
-    //setBarDisplay1(0);
-    //setBarDisplay2(0);
+    // setBarDisplay1(0);
+    // setBarDisplay2(0);
 }
 
 void flashMuzzleLight()
@@ -29,12 +29,12 @@ void flashHitLight()
 void setBarDisplay1(uint16_t bits)
 {
     uint8_t data[10];
-    
+
     for (int i = 0; i < 10; i++)
     {
         data[i] = (bits >> i) & 1;
     }
-    
+
     LEDDriver_setControl(0, data, 10);
     LEDDriver_flushChanges();
 }
@@ -42,13 +42,13 @@ void setBarDisplay1(uint16_t bits)
 void setBarDisplay2(uint16_t bits)
 {
     uint8_t data[10];
-    
+
     for (int i = 0; i < 10; i++)
     {
         // Reverse, as this bar display is installed upside down
         data[10 - i - 1] = (bits >> i) & 1;
     }
-    
+
     LEDDriver_setControl(10, data, 10);
     LEDDriver_flushChanges();
 }
@@ -56,13 +56,13 @@ void setBarDisplay2(uint16_t bits)
 void setHealthDisplay(uint8_t value)
 {
     // Shift in zeros from the right and invert
-    setBarDisplay1( ~(0b1111111111 << value) );
+    setBarDisplay1(~(0b1111111111 << value));
 }
 
 void setAmmoDisplay(uint8_t value)
 {
     // Shift in zeros from the right and invert
-    setBarDisplay2( ~(0b1111111111 << value) );
+    setBarDisplay2(~(0b1111111111 << value));
 }
 
 void setRGB1(uint8_t r, uint8_t g, uint8_t b)

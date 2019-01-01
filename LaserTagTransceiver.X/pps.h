@@ -1,5 +1,5 @@
 #ifndef PPS_H
-#define	PPS_H
+#define PPS_H
 
 #include <xc.h>
 
@@ -8,6 +8,7 @@
 
 // Not all pins are available for each port. Unavailable pins are commented-out
 
+// clang-format off
 #define PPS_IN_VAL_RA0 0b00000
 #define PPS_IN_VAL_RA1 0b00001
 #define PPS_IN_VAL_RA2 0b00010
@@ -96,5 +97,6 @@
 #define PPS_OUT_VAL_SDO_SDA      0b10001
 #define PPS_OUT_VAL_TX_CK        0b10010
 #define PPS_OUT_VAL_DT           0b10011
+// clang-format on
 
-#endif	/* PPS_H */
+#endif /* PPS_H */

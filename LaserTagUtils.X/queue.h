@@ -1,10 +1,11 @@
 #ifndef QUEUE_H
-#define	QUEUE_H
+#define QUEUE_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct
+{
     uint8_t* storage;
     uint8_t length;
     uint8_t index;
@@ -27,5 +28,4 @@ uint8_t queue_capacity(queue_t* queue);
 uint8_t queue_size(queue_t* queue);
 uint8_t queue_freeCapacity(queue_t* queue);
 
-#endif	/* QUEUE_H */
-
+#endif /* QUEUE_H */

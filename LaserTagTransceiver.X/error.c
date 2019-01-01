@@ -10,9 +10,9 @@ void fatal(uint16_t error_code)
 {
     GIE = 0;
     // Disable all output drivers
-    //TRISA = ~0;
-    //TRISB = ~0;
-    //TRISC = ~0;
+    // TRISA = ~0;
+    // TRISB = ~0;
+    // TRISC = ~0;
     // Enable error LED output driver
     TRIS_ERROR_LED = 0;
     while (1)

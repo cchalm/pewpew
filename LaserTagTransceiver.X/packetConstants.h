@@ -1,5 +1,5 @@
 #ifndef PACKETSTATS_H
-#define	PACKETSTATS_H
+#define PACKETSTATS_H
 
 #include "crcConstants.h"
 
@@ -16,5 +16,4 @@ const volatile uint8_t PACKET_LENGTH_eval = PACKET_LENGTH;
 const volatile uint8_t PACKET_TRANSMISSION_LENGTH_eval = PACKET_TRANSMISSION_LENGTH;
 #endif
 
-#endif	/* PACKETSTATS_H */
-
+#endif /* PACKETSTATS_H */

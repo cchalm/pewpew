@@ -1,5 +1,5 @@
 #ifndef CRC_H
-#define	CRC_H
+#define CRC_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,4 +10,4 @@ void initializeCRC(void);
 // the CRC_LENGTH constant
 uint8_t crc(uint8_t data);
 
-#endif	/* CRC_H */
+#endif /* CRC_H */

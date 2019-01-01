@@ -1,10 +1,11 @@
 #ifndef BITQUEUE_H
-#define	BITQUEUE_H
+#define BITQUEUE_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct
+{
     uint8_t* storage;
     uint8_t length;
     uint8_t index;
@@ -28,5 +29,4 @@ uint8_t bitQueue_capacity(bit_queue_t* queue);
 uint8_t bitQueue_size(bit_queue_t* queue);
 uint8_t bitQueue_freeCapacity(bit_queue_t* queue);
 
-#endif	/* BITQUEUE_H */
-
+#endif /* BITQUEUE_H */

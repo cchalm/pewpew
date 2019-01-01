@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   realTimeClock.h
  * Author: chris
  *
@@ -6,7 +6,7 @@
  */
 
 #ifndef REALTIMECLOCK_H
-#define	REALTIMECLOCK_H
+#define REALTIMECLOCK_H
 
 typedef unsigned int count_t;
 
@@ -18,5 +18,4 @@ count_t getSecondCount(void);
 // Counts milliseconds. Overflows to 0 after ~1 minute (65.535 seconds)
 count_t getMillisecondCount(void);
 
-#endif	/* REALTIMECLOCK_H */
-
+#endif /* REALTIMECLOCK_H */

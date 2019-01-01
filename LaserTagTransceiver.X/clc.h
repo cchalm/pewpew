@@ -1,9 +1,10 @@
 #ifndef CLC_H
-#define	CLC_H
+#define CLC_H
 
 // Defines CLC constants, which are mysteriously not defined by the xc8 header
 // for the chip. These values are specific to pic16f1619.
 
+// clang-format off
 #define CLC_SOURCE_CLCIN0           0b000000
 #define CLC_SOURCE_CLCIN1           0b000001
 #define CLC_SOURCE_CLCIN2           0b000010
@@ -54,6 +55,6 @@
 #define CLC_LOGIC_FUNCTION_2IN_DFLIPFLOP_R      0b101
 #define CLC_LOGIC_FUNCTION_JKFLIPFLOP_R         0b110
 #define CLC_LOGIC_FUNCTION_1IN_TRANSPARENT_LATCH_S_R 0b111
+// clang-format on
 
-#endif	/* CLC_H */
-
+#endif /* CLC_H */

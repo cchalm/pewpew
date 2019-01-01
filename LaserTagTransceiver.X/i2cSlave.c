@@ -1,8 +1,8 @@
 #include "i2cSlave.h"
 
+#include "../LaserTagUtils.X/stringQueue.h"
 #include "error.h"
 #include "pins.h"
-#include "../LaserTagUtils.X/stringQueue.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -24,7 +24,7 @@ void i2cSlave_initialize()
 
     SSP1CON1bits.SSPEN = 1;
     // Select I2C Slave mode, with 7-bit address and no start/stop signal interrupts
-    SSP1CON1bits.SSPM = 0b0110; // TODO start/stop interrupts? 0b1110
+    SSP1CON1bits.SSPM = 0b0110;  // TODO start/stop interrupts? 0b1110
 
     // Set our address to a randomly picked number. Shift left one because the
     // address goes in bits 1-7 of the register

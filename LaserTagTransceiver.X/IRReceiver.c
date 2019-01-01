@@ -1,9 +1,9 @@
-#include <xc.h>
 #include "IRReceiver.h"
+#include <xc.h>
 
+#include "IRReceiverStats.h"
 #include "error.h"
 #include "pins.h"
-#include "IRReceiverStats.h"
 #include "transmissionConstants.h"
 
 #include <stdbool.h>
@@ -161,15 +161,23 @@ void irReceiver_initialize(void)
 
 // Upper and lower bounds of pulse lengths, in terms of modulation cycles.
 // To increase resolution, these hold values 10x the real ones
-#define ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 ((ZERO_PULSE_LENGTH_MOD_CYCLES) * 10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
-#define ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 ((ZERO_PULSE_LENGTH_MOD_CYCLES) * 10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
-#define ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 ((ONE_PULSE_LENGTH_MOD_CYCLES) * 10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
-#define ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 ((ONE_PULSE_LENGTH_MOD_CYCLES) * 10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
+#define ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 \
+    ((ZERO_PULSE_LENGTH_MOD_CYCLES)*10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
+#define ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 \
+    ((ZERO_PULSE_LENGTH_MOD_CYCLES)*10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
+#define ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10 \
+    ((ONE_PULSE_LENGTH_MOD_CYCLES)*10 + (RECEIVER_PULSE_LENGTH_BIAS_UPPER_BOUND_MOD_CYCLES_x10))
+#define ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10 \
+    ((ONE_PULSE_LENGTH_MOD_CYCLES)*10 - (RECEIVER_PULSE_LENGTH_BIAS_LOWER_BOUND_MOD_CYCLES_x10))
 
-#define ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
-#define ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
-#define ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
-#define ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES ((ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES \
+    ((ZERO_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES \
+    ((ZERO_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES \
+    ((ONE_PULSE_LENGTH_UPPER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
+#define ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES \
+    ((ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
 
 // We have limited the period of the SMT timer such that its value always fits
 // in 8 bits
@@ -268,14 +276,14 @@ void irReceiver_eventHandler(void)
 #endif
 
             if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                    && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
+                && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
             {
                 // Received a 0
                 g_transmission_data_accumulator <<= 1;
                 g_bit_index++;
             }
             else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                    && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
+                     && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
             {
                 // Received a 1
                 g_transmission_data_accumulator = (g_transmission_data_accumulator << 1) | 1;
@@ -283,8 +291,8 @@ void irReceiver_eventHandler(void)
             }
             else
             {
-                // Invalid pulse width. Something has gone wrong, so we're going to stop
-                // reading in data and wait until we see a long period of silence
+                // Invalid pulse width. Something has gone wrong, so we're going to stop reading in data and wait until
+                // we see a long period of silence
 
                 g_wait_for_silence = true;
             }
@@ -312,7 +320,6 @@ SMT1_t* getPulseLengthArray()
 {
     return g_pulse_lengths;
 }
-
 SMT1_t* getGapLengthArray()
 {
     return g_gap_lengths;
@@ -321,8 +328,7 @@ SMT1_t* getGapLengthArray()
 
 void receiverStaticAsserts(void)
 {
-    // Pulse lengths in terms of SMT1 cycles must fit in 8 bits with room to
-    // spare
+    // Pulse lengths in terms of SMT1 cycles must fit in 8 bits with room to spare
     if ((ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) > 200)
         fatal(ERROR_PULSE_MEASUREMENT_DOESNT_FIT_SMT1);
 
@@ -332,8 +338,8 @@ void receiverStaticAsserts(void)
 
     // The 0/1 pulse length ranges must not overlap
     if (((ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
-            && (ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES))
-            || ((ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
+         && (ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES))
+        || ((ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) > (ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES)
             && (ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES) < (ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)))
         fatal(ERROR_OVERLAPPING_PULSE_LENGTH_RANGES);
 

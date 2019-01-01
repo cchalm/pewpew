@@ -1,8 +1,8 @@
 #include "packetTransmitter.h"
 
+#include "IRTransmitter.h"
 #include "crc.h"
 #include "crcConstants.h"
-#include "IRTransmitter.h"
 #include "packetConstants.h"
 
 #include <stdbool.h>

@@ -1,8 +1,8 @@
 #include "system.h"
 
+#include "LEDs.h"
 #include "crc.h"
 #include "i2cMaster.h"
-#include "LEDs.h"
 #include "realTimeClock.h"
 
 #include <xc.h>
@@ -12,8 +12,9 @@ void configureSystem(void)
     // Configure internal oscillator for 32MHz (16MHz x2 PLL)
     OSCCONbits.IRCF = 0b1111;
 
-    INTCONbits.GIE = 0; // Disable active interrupts. This should be set to 1 before starting program logic
-    INTCONbits.PEIE = 1; // Enable peripheral interrupts
+    INTCONbits.GIE = 0;   // Disable active interrupts. This should be set to 1
+                          // before starting program logic
+    INTCONbits.PEIE = 1;  // Enable peripheral interrupts
 
     // Disable analog inputs. This fixes a read-modify-write issue with setting
     // individual output pins.
@@ -24,7 +25,7 @@ void configureSystem(void)
     initializeRTC();
     initializeCRC();
     i2cMaster_initialize();
-    
+
     LATA = 0b00110000;
     LATC = 0b00000000;
 
@@ -50,9 +51,7 @@ void delay(uint32_t d)
 {
     _delay_gen(d, 600);
 }
-
 void delayTiny(uint32_t d)
 {
     _delay_gen(d, 0);
 }
-

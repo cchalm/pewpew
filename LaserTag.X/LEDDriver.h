@@ -1,5 +1,5 @@
 #ifndef LEDDRIVER_H
-#define	LEDDRIVER_H
+#define LEDDRIVER_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,4 +13,4 @@ void LEDDriver_setControl(uint8_t start_index, uint8_t* control, uint8_t control
 void LEDDriver_setGlobalEnable(bool enable);
 void LEDDriver_reset(void);
 
-#endif	/* LEDDRIVER_H */
+#endif /* LEDDRIVER_H */

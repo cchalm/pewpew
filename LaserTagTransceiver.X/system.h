@@ -7,4 +7,4 @@ void configureSystem(void);
 void delay(uint32_t d);
 void delayTiny(uint32_t d);
 
-#endif // SYSTEM_H
+#endif  // SYSTEM_H

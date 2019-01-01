@@ -14,7 +14,7 @@ bit_queue_t bitQueue_create(uint8_t* storage, uint8_t length)
         // Special condition: end_index is set to length when the queue is full
         .end_index = 0,
     };
-    
+
     return queue;
 }
 
@@ -64,13 +64,13 @@ bool bitQueue_push(bit_queue_t* queue, bool data)
 {
     if (isFull(queue))
         return false;
-    
+
     bitArray_setBit(queue->storage, queue->end_index, data);
     incrementEndIndex(queue);
-    
+
     if (queue->index == queue->end_index)
         setIsFull(queue, true);
-    
+
     return true;
 }
 
@@ -78,11 +78,11 @@ bool bitQueue_pop(bit_queue_t* queue, bool* data_out)
 {
     if (isEmpty(queue))
         return false;
-    
+
     *data_out = bitArray_getBit(queue->storage, queue->index);
     setIsFull(queue, false);
     incrementIndex(queue);
-    
+
     return true;
 }
 
@@ -90,7 +90,6 @@ uint8_t bitQueue_capacity(bit_queue_t* queue)
 {
     return queue->length;
 }
-
 uint8_t bitQueue_size(bit_queue_t* queue)
 {
     if (isFull(queue))
@@ -103,4 +102,3 @@ uint8_t bitQueue_freeCapacity(bit_queue_t* queue)
 {
     return bitQueue_capacity(queue) - bitQueue_size(queue);
 }
-
