@@ -1,10 +1,8 @@
 #include "system.h"
 
-#include "crc.h"
+#include "i2cSlave.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
-#include "LEDDisplay.h"
-#include "realTimeClock.h"
 
 #include <xc.h>
 
@@ -19,11 +17,11 @@ void configureSystem(void)
     // Disable analog inputs. This fixes a read-modify-write issue with setting
     // individual output pins.
     ANSELA = 0;
-    ANSELB = 0;
     ANSELC = 0;
 
-    initializeReceiver();
-    initializeTransmitter();
+    irReceiver_initialize();
+    irTransmitter_initialize();
+    i2cSlave_initialize();
 
     // Wait for the oscillator to be ready before continuing
     while (!OSTS);

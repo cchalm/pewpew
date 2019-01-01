@@ -20,7 +20,7 @@ void fatal(uint16_t error_code)
         for (int i = 0; i < 16; i++)
         {
             PIN_ERROR_LED = 0;
-            delay(30);
+            delay(50);
             if ((error_code & (1 << i)) != 0)
             {
                 PIN_ERROR_LED = 1;
@@ -29,7 +29,7 @@ void fatal(uint16_t error_code)
             {
                 PIN_ERROR_LED = 0;
             }
-            delay(500);
+            delay(200);
         }
     }
 }

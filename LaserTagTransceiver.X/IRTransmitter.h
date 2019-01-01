@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-void initializeTransmitter(void);
+void irTransmitter_initialize(void);
 
-void transmitterInterruptHandler(void);
-void transmitterEventHandler(void);
+void irTransmitter_interruptHandler(void);
+void irTransmitter_eventHandler(void);
 
 // Asynchronously transmit the given bits over IR. If a transmission is in
 // progress, returns false and does nothing. Otherwise returns true
-bool transmitAsync(uint16_t data, uint8_t length);
+bool irTransmitter_transmitAsync(uint16_t data, uint8_t length);
 
 #endif	/* IRTRANSMITTER_H */

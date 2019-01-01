@@ -148,7 +148,7 @@ static void configureTMR4(void)
 
 void receiverStaticAsserts(void);
 
-void initializeReceiver(void)
+void irReceiver_initialize(void)
 {
     receiverStaticAsserts();
 
@@ -233,13 +233,13 @@ static void TMR4InterruptHandler()
     TMR4IF = 0;
 }
 
-void receiverInterruptHandler()
+void irReceiver_interruptHandler()
 {
     TMR4InterruptHandler();
     SMT1InterruptHandler();
 }
 
-void receiverEventHandler(void)
+void irReceiver_eventHandler(void)
 {
     if (g_pulse_received)
     {
@@ -292,7 +292,7 @@ void receiverEventHandler(void)
     }
 }
 
-bool tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
+bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
 {
     if (!g_transmission_received)
         return false;

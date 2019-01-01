@@ -53,12 +53,12 @@ int main(void)
 
     while(true)
     {
-        transmitterEventHandler();
-        receiverEventHandler();
+        irTransmitter_eventHandler();
+        irReceiver_eventHandler();
 
         uint8_t received_data_length;
         uint16_t received_data;
-        if (tryGetTransmission(&received_data, &received_data_length))
+        if (irReceiver_tryGetTransmission(&received_data, &received_data_length))
         {
             NOP();
             // TODO send data across UART or similar
@@ -67,7 +67,7 @@ int main(void)
         // A crude non-blocking delay system, for testing
         if (loop_counter == 0)
         {
-            transmitAsync(0b10001111, 8);
+            irTransmitter_transmitAsync(0b10001111, 8);
             loop_counter = 4000;
         }
 
@@ -78,6 +78,6 @@ int main(void)
 // Main Interrupt Service Routine (ISR)
 void __interrupt () ISR(void)
 {
-    transmitterInterruptHandler();
-    receiverInterruptHandler();
+    irTransmitter_interruptHandler();
+    irReceiver_interruptHandler();
 }

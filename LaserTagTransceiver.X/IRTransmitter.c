@@ -1,5 +1,6 @@
 #include "IRTransmitter.h"
 
+#include "clc.h"
 #include "error.h"
 #include "pins.h"
 #include "pps.h"
@@ -96,11 +97,7 @@ static void configureTimer2(void)
     // period register when expected.
     T2PSYNC = 1;
     // Configure the transmission carrier signal as the clock source.
-    // The documentation talks about T2INPPS and T2CKINPPS, neither of which
-    // exist. So I'm assuming T2PPS is what it meant. This could be used for two
-    // things though: external reset signal selection, or clock selection, so we
-    // should verify that it does what we intend
-    PPS_IN_REG_T2 = PPS_IN_VAL_CARRIER_SIGNAL;
+    PPS_IN_REG_T2CKI = PPS_IN_VAL_CARRIER_SIGNAL;
     // DO NOT configure the carrier signal pin as an input. We need the output
     // driver to be active because we are outputting the PWM signal to the pin.
     // A pin configured as an output can still be read. The PWM configure
@@ -342,7 +339,7 @@ static void disableTransmissionModules(void)
     TMR6ON = 0;
 }
 
-void initializeTransmitter()
+void irTransmitter_initialize()
 {
     disableTransmissionModules();
 
@@ -353,7 +350,7 @@ void initializeTransmitter()
     configureCLC1();
 }
 
-void transmitterInterruptHandler()
+void irTransmitter_interruptHandler()
 {
     if (!(TMR2IF && TMR2IE))
         return;
@@ -376,7 +373,7 @@ static void endTransmission(void)
     g_transmitting = false;
 }
 
-void transmitterEventHandler(void)
+void irTransmitter_eventHandler(void)
 {
     if (!g_period_match)
         return;
@@ -396,7 +393,7 @@ void transmitterEventHandler(void)
     g_period_match = false;
 }
 
-bool transmitAsync(uint16_t data, uint8_t length)
+bool irTransmitter_transmitAsync(uint16_t data, uint8_t length)
 {
     if (g_transmitting)
         return false;
