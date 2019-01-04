@@ -186,6 +186,8 @@ static void testLEDDriver()
 
     LEDDriver_flushChanges();
     LEDDriver_setShutdown(false);
+
+    i2cMaster_flushQueue();
 }
 
 static count_t getShotDelay()
@@ -202,6 +204,8 @@ static count_t getShotDelay()
 #else
     g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
 #endif
+
+    return g_shot_enable_ms_count;
 }
 
 int main(void)

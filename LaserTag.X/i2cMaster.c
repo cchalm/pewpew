@@ -49,13 +49,15 @@ void i2cMaster_initialize()
 
 void i2cMaster_transmit(uint8_t address, uint8_t* data, uint8_t data_len)
 {
-    stringQueue_pushPartial(&g_outgoing_message_queue, &address, 1, false);
-    stringQueue_pushPartial(&g_outgoing_message_queue, data, data_len, true);
+    if (!stringQueue_pushPartial(&g_outgoing_message_queue, &address, 1, false))
+        fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
+    if (!stringQueue_pushPartial(&g_outgoing_message_queue, data, data_len, true))
+        fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
 }
 
 static bool isQueueEmpty()
 {
-    return stringQueue_size(&g_outgoing_message_queue) == 0;
+    return !stringQueue_hasFullString(&g_outgoing_message_queue);
 }
 
 typedef enum {
@@ -69,6 +71,8 @@ i2cModuleState_t g_i2c_module_state = I2C_STATE_IDLE;
 
 void i2cMaster_flushQueue()
 {
+    // Continue until the queue is empty AND the module state is idle. If we stop as soon as the message queue is empty,
+    // we will not send the stop bit for the final byte
     while (!(g_i2c_module_state == I2C_STATE_IDLE && isQueueEmpty()))
         i2cMaster_eventHandler();
 }

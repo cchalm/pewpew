@@ -5,8 +5,8 @@
 
 void initializeLEDs(void);
 
-void flashMuzzleLight();
-void flashHitLight();
+void flashMuzzleLight(void);
+void flashHitLight(void);
 
 // LSB is the first LED. 1 is on, 0 is off.
 void setBarDisplay1(uint16_t bits);
