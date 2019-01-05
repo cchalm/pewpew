@@ -18,8 +18,6 @@
           </logicalFolder>
         </logicalFolder>
         <itemPath>../LaserTagUtils.X/bitArray.h</itemPath>
-        <itemPath>../LaserTagUtils.X/bitQueue.h</itemPath>
-        <itemPath>../LaserTagUtils.X/queue.h</itemPath>
         <itemPath>../LaserTagUtils.X/stringQueue.h</itemPath>
       </logicalFolder>
       <itemPath>system.h</itemPath>
@@ -56,8 +54,6 @@
           </logicalFolder>
         </logicalFolder>
         <itemPath>../LaserTagUtils.X/bitArray.c</itemPath>
-        <itemPath>../LaserTagUtils.X/bitQueue.c</itemPath>
-        <itemPath>../LaserTagUtils.X/queue.c</itemPath>
         <itemPath>../LaserTagUtils.X/stringQueue.c</itemPath>
       </logicalFolder>
       <itemPath>main.c</itemPath>
