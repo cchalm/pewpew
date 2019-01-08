@@ -91,16 +91,16 @@ bool stringQueue_pushPartial(string_queue_t* queue, uint8_t* partial_string, uin
     for (uint8_t i = 0; i < partial_string_length; i++)
     {
         queue->storage[queue->end_index] = partial_string[i];
-
-        // Increment end index before setting the string end flag, because the string end flags line up with exclusive
-        // end indexes
         incrementEndIndex(queue);
-
-        bool is_final_byte = is_end_of_string && (i == (partial_string_length - 1));
-        bitArray_setBit(getBitArray(queue), queue->end_index, is_final_byte);
     }
 
-    if (queue->end_index == queue->index)
+    if (is_end_of_string)
+    {
+        // Set the "end of string" flag
+        bitArray_setBit(getBitArray(queue), queue->end_index, true);
+    }
+
+    if (partial_string_length != 0 && queue->end_index == queue->index)
         setIsFull(queue, true);
 
     return true;
@@ -125,6 +125,12 @@ bool stringQueue_pop(string_queue_t* queue, uint8_t max_data_length, uint8_t* da
         found_last_byte = bitArray_getBit(getBitArray(queue), queue->index);
 
         i++;
+    }
+
+    if (found_last_byte)
+    {
+        // Clear the "end of string" flag
+        bitArray_setBit(getBitArray(queue), queue->index, false);
     }
 
     *data_length_out = i;
@@ -152,5 +158,39 @@ uint8_t stringQueue_freeCapacity(string_queue_t* queue)
 
 bool stringQueue_hasFullString(string_queue_t* queue)
 {
-    return stringQueue_size(queue) != 0 && bitArray_getBit(getBitArray(queue), queue->end_index);
+    // If there are any set bits in the "end of string" flag array bytes covering the range between `index` and
+    // `end_index`, then there is a full string in the queue
+
+    // Length of the "end of string" flag array in bytes
+    uint8_t bitarray_length = (queue->length + 7) / 8;
+
+    // Inclusive start index into bytes of the bitarray
+    uint8_t byte_index = increment(queue->index, queue->length) / 8;
+    // Exclusive end index into bytes of the bitarray
+    uint8_t end_byte_index = increment(queue->end_index / 8, bitarray_length);
+
+    while (byte_index != end_byte_index)
+    {
+        if (*(getBitArray(queue) + byte_index) != 0)
+            return true;
+
+        byte_index = increment(byte_index, bitarray_length);
+    }
+
+    return false;
+}
+
+uint8_t stringQueue_peekStringLength(string_queue_t* queue)
+{
+    uint8_t string_length = 0;
+    // Start one ahead, since string end flags are at exclusive indexes
+    uint8_t cursor = increment(queue->index, queue->length);
+
+    while (!bitArray_getBit(getBitArray(queue), cursor))
+    {
+        cursor = increment(cursor, queue->length);
+        string_length++;
+    }
+
+    return string_length;
 }

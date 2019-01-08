@@ -30,7 +30,8 @@ string_queue_t stringQueue_create(uint8_t* storage, uint8_t length);
 // Push a string onto the back of the queue. Returns false if the queue does not have enough space for the string, true
 // otherwise. Not thread safe
 bool stringQueue_push(string_queue_t* queue, uint8_t* string, uint8_t string_length);
-// Push part of a string. The final parameter indicates whether this push concludes the string
+// Push part of a string. The final parameter indicates whether this push concludes the string. If the final parameter
+// is `true` and the given partial string length is `0`, marks the most recently added byte as the end of the string
 bool stringQueue_pushPartial(string_queue_t* queue, uint8_t* partial_string, uint8_t partial_string_length,
                              bool is_end_of_string);
 // Pop a string from the front of the queue. Takes the maximum number of bytes to pop. Returns true if the last byte
@@ -49,5 +50,8 @@ uint8_t stringQueue_freeCapacity(string_queue_t* queue);
 // Returns true if the queue contains at least one full string. Returns false if the queue is empty or only contains a
 // partial string
 bool stringQueue_hasFullString(string_queue_t* queue);
+
+// Peek at the length of the string at the front of the queue. Linear complexity, with the length of the string
+uint8_t stringQueue_peekStringLength(string_queue_t* queue);
 
 #endif /* STRINGQUEUE_H */
