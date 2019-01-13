@@ -4,6 +4,23 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
+      <logicalFolder name="LaserTagUtils.X"
+                     displayName="LaserTagUtils.X"
+                     projectFiles="true">
+        <logicalFolder name="debug" displayName="debug" projectFiles="true">
+          <logicalFolder name="default" displayName="default" projectFiles="true">
+          </logicalFolder>
+        </logicalFolder>
+        <logicalFolder name="dist" displayName="dist" projectFiles="true">
+          <logicalFolder name="default" displayName="default" projectFiles="true">
+            <logicalFolder name="production" displayName="production" projectFiles="true">
+            </logicalFolder>
+          </logicalFolder>
+        </logicalFolder>
+        <itemPath>../LaserTagUtils.X/bitArray.h</itemPath>
+        <itemPath>../LaserTagUtils.X/stringQueue.h</itemPath>
+        <itemPath>../LaserTagUtils.X/queue.h</itemPath>
+      </logicalFolder>
       <itemPath>system.h</itemPath>
       <itemPath>transmissionConstants.h</itemPath>
       <itemPath>IRTransmitter.h</itemPath>
@@ -22,6 +39,23 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
+      <logicalFolder name="LaserTagUtils.X"
+                     displayName="LaserTagUtils.X"
+                     projectFiles="true">
+        <logicalFolder name="debug" displayName="debug" projectFiles="true">
+          <logicalFolder name="default" displayName="default" projectFiles="true">
+          </logicalFolder>
+        </logicalFolder>
+        <logicalFolder name="dist" displayName="dist" projectFiles="true">
+          <logicalFolder name="default" displayName="default" projectFiles="true">
+            <logicalFolder name="production" displayName="production" projectFiles="true">
+            </logicalFolder>
+          </logicalFolder>
+        </logicalFolder>
+        <itemPath>../LaserTagUtils.X/bitArray.c</itemPath>
+        <itemPath>../LaserTagUtils.X/stringQueue.c</itemPath>
+        <itemPath>../LaserTagUtils.X/queue.c</itemPath>
+      </logicalFolder>
       <itemPath>main.c</itemPath>
       <itemPath>system.c</itemPath>
       <itemPath>IRTransmitter.c</itemPath>
@@ -38,6 +72,7 @@
   <sourceRootList>
     <Elem>.</Elem>
     <Elem>../LaserTag.X</Elem>
+    <Elem>../LaserTagUtils.X</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>

@@ -34,6 +34,7 @@
 // clang-format on
 
 #include "error.h"
+#include "i2cSlave.h"
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "realTimeClock.h"
@@ -57,6 +58,7 @@ int main(void)
     {
         irTransmitter_eventHandler();
         irReceiver_eventHandler();
+        i2cSlave_eventHandler();
 
         uint8_t received_data_length;
         uint16_t received_data;
