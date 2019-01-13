@@ -10,7 +10,7 @@
 // TODO investigate whether we need this to be a global variable, or if we can
 // efficiently create function-local arrays
 static uint8_t g_data[37];
-static uint8_t g_address = 0b01111000;  // I2C address of LED driver
+static uint8_t g_address = 0b0111100;  // 7-bit I2C address of LED driver
 
 const uint8_t REG_SHUTDOWN = 0x00;
 const uint8_t REG_PWM = 0x01;
@@ -33,7 +33,7 @@ static void setRegisters(uint8_t register_address, uint8_t start_index, uint8_t*
     // Copy given data into our global data array
     memcpy(g_data + 1, data, data_len);
 
-    i2cMaster_transmit(g_address, g_data, data_len + 1);
+    i2cMaster_write(g_address, g_data, data_len + 1);
 }
 
 static void setRegister(uint8_t register_address, uint8_t data)

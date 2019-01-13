@@ -32,6 +32,7 @@
       <itemPath>pins.h</itemPath>
       <itemPath>pps.h</itemPath>
       <itemPath>LEDDriver.h</itemPath>
+      <itemPath>irTransceiver.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -66,6 +67,7 @@
       <itemPath>packetTransmitter.c</itemPath>
       <itemPath>i2cMaster.c</itemPath>
       <itemPath>LEDDriver.c</itemPath>
+      <itemPath>irTransceiver.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

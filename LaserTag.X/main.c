@@ -231,9 +231,9 @@ int main(void)
     flashHitLight();
     delay(400);
 
-    setBarDisplay1(0b1111111111);
+    /*setBarDisplay1(0b1111111111);
     setBarDisplay2(0b1111111111);
-    i2cMaster_flushQueue();
+    i2cMaster_flushQueue();*/
 
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;
@@ -247,6 +247,9 @@ int main(void)
     uint16_t input_state = INPUT_PORT;
     bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
     bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+
+    i2cMaster_read(0b1010001, 5);
+    i2cMaster_flushQueue();
 
     // Enable interrupts (go, go, go!)
     GIE = 1;
