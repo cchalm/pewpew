@@ -1,6 +1,8 @@
 #ifndef STRINGQUEUE_H
 #define STRINGQUEUE_H
 
+#include "circularBuffer.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -10,16 +12,8 @@
 
 typedef struct
 {
-    // Storage for both the bytes in the string and flags indicating where each string ends
-    uint8_t* storage;
-    // The length of the string queue in bytes. Note that the storage array is actually at least 1/8 longer than this
-    // number, with the extra bytes used to store string end flags
-    uint8_t length;
-    // Index of the first byte of the first string in the queue
-    uint8_t index;
-    // Index one past the last byte of the last string in the queue, complete or incomplete. Special condition:
-    // end_index is set to `length` when the queue is full
-    uint8_t end_index;
+    circular_buffer_t buffer;
+    uint8_t* string_end_flags;
 } string_queue_t;
 
 // Create a queue using the given storage. In this context memory cannot be allocated dynamically, so the given storage
