@@ -231,9 +231,9 @@ int main(void)
     flashHitLight();
     delay(400);
 
-    /*setBarDisplay1(0b1111111111);
+    setBarDisplay1(0b1111111111);
     setBarDisplay2(0b1111111111);
-    i2cMaster_flushQueue();*/
+    i2cMaster_flushQueue();
 
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;

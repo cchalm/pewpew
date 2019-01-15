@@ -41,37 +41,35 @@ bool stringQueue_pushPartial(string_queue_t* queue, uint8_t* partial_string, uin
 
     if (is_end_of_string)
     {
-        // Set the "end of string" flag
-        bitArray_setBit(queue->string_end_flags, queue->buffer.back_index, true);
+        // Indicate that the last byte in the queue is the end of a string
+        _stringQueue_setIsEndOfString(queue, circularBuffer_size(&queue->buffer), true);
     }
 
     return true;
 }
 
-bool stringQueue_pop(string_queue_t* queue, uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out)
+bool stringQueue_pop(string_queue_t* queue, uint8_t max_length, uint8_t* data_out, uint8_t* length_out)
 {
     bool found_last_byte = false;
 
     uint8_t i = 0;
     // No need to check for an empty byte queue - the last byte will be flagged
     // as the end of a string
-    while (i < max_data_length && !found_last_byte)
+    while (i < max_length && !found_last_byte)
     {
-        // Pop the byte before checking the string end flag, because the string end flags line up with exclusive end
-        // indexes, and we're going to borrow the buffer's front index
         circularBuffer_popFront(&queue->buffer, data_out + i);
-        found_last_byte = bitArray_getBit(queue->string_end_flags, queue->buffer.front_index);
+        // We just popped a byte from the front of the queue, so index 0 points one past that byte
+        found_last_byte = _stringQueue_getIsEndOfString(queue, 0);
 
         i++;
     }
 
     if (found_last_byte)
     {
-        // Clear the "end of string" flag
-        bitArray_setBit(queue->string_end_flags, queue->buffer.front_index, false);
+        _stringQueue_setIsEndOfString(queue, 0, false);
     }
 
-    *data_length_out = i;
+    *length_out = i;
 
     return found_last_byte;
 }
@@ -129,15 +127,70 @@ bool stringQueue_hasFullString(string_queue_t* queue)
 
 uint8_t stringQueue_peekStringLength(string_queue_t* queue)
 {
-    uint8_t string_length = 0;
-    // Start one ahead, since string end flags are at exclusive indexes
-    uint8_t cursor = increment(queue->buffer.front_index, queue->buffer.length);
+    uint8_t index = 0;
 
-    while (!bitArray_getBit(queue->string_end_flags, cursor))
+    while (!_stringQueue_getIsEndOfString(queue, index))
+        index++;
+
+    return index;
+}
+
+bool _stringQueue_getIsEndOfString(string_queue_t* queue, uint8_t index)
+{
+    return bitArray_getBit(queue->string_end_flags, _circularBuffer_getPhysicalIndex(&queue->buffer, index));
+}
+
+void _stringQueue_setIsEndOfString(string_queue_t* queue, uint8_t index, bool is_end_of_string)
+{
+    bitArray_setBit(queue->string_end_flags, _circularBuffer_getPhysicalIndex(&queue->buffer, index), is_end_of_string);
+}
+
+bool _stringQueue_popMiddle(string_queue_t* queue, uint8_t index, uint8_t max_length, uint8_t* data_out,
+                            uint8_t* length_out)
+{
+    bool found_last_byte = false;
+
+    uint8_t i = 0;
+
+    while (i < max_length && !found_last_byte)
     {
-        cursor = increment(cursor, queue->buffer.length);
-        string_length++;
+        data_out[i] = circularBuffer_get(&queue->buffer, index + i);
+        // Increment before checking the string end flag, because the string end flags line up with exclusive end
+        // indexes
+        i++;
+
+        found_last_byte = _stringQueue_getIsEndOfString(queue, index + i);
     }
 
-    return string_length;
+    if (found_last_byte)
+    {
+        _stringQueue_setIsEndOfString(queue, index + i, false);
+    }
+
+    uint8_t popped_length = i;
+    *length_out = popped_length;
+
+    // Copy bytes from before the popped section forward to fill the gap
+    for (uint8_t j = 0; j < popped_length; j++)
+    {
+        uint8_t copy_from_index = index - j;
+        uint8_t copy_to_index = copy_from_index + popped_length;
+
+        uint8_t value = circularBuffer_get(&queue->buffer, copy_from_index);
+        circularBuffer_set(&queue->buffer, copy_to_index, value);
+
+        bool is_end_of_string = _stringQueue_getIsEndOfString(queue, copy_from_index + 1);
+        _stringQueue_setIsEndOfString(queue, copy_to_index + 1, is_end_of_string);
+    }
+
+    // Pop off the bytes we just shifted forward, and clear the string end flags for those indices
+    for (uint8_t j = 0; j < popped_length; j++)
+    {
+        uint8_t dummy;
+        circularBuffer_popFront(&queue->buffer, &dummy);
+
+        _stringQueue_setIsEndOfString(queue, j + 1, false);
+    }
+
+    return found_last_byte;
 }

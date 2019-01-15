@@ -9,23 +9,6 @@ circular_buffer_t circularBuffer_create(uint8_t* storage, uint8_t length)
     return circularBuffer;
 }
 
-// A virtual index is measured from buffer->front_index, and a physical one is measured from 0
-static uint8_t virtualToPhysicalIndex(circular_buffer_t* buffer, uint8_t virtual_index)
-{
-    if (buffer->length - buffer->front_index > virtual_index)
-        return buffer->front_index + virtual_index;
-    else
-        return virtual_index - (buffer->length - buffer->front_index);
-}
-
-static uint8_t physicalToVirtualIndex(circular_buffer_t* buffer, uint8_t physical_index)
-{
-    if (physical_index > buffer->front_index)
-        return physical_index - buffer->front_index;
-    else
-        return (buffer->length - buffer->front_index) + physical_index;
-}
-
 static uint8_t increment(uint8_t index, uint8_t end)
 {
     // Increment our local copy
@@ -153,7 +136,7 @@ uint8_t* circularBuffer_at(circular_buffer_t* buffer, uint8_t index)
     if (index >= buffer->length)
         return 0;
 
-    return buffer->storage + virtualToPhysicalIndex(buffer, index);
+    return buffer->storage + _circularBuffer_getPhysicalIndex(buffer, index);
 }
 
 uint8_t circularBuffer_capacity(circular_buffer_t* buffer)
@@ -165,10 +148,27 @@ uint8_t circularBuffer_size(circular_buffer_t* buffer)
     if (isFull(buffer))
         return buffer->length;
 
-    return buffer->back_index - buffer->front_index;
+    // The relative index of the physical back index is the size of the buffer
+    return _circularBuffer_getRelativeIndex(buffer, buffer->back_index);
 }
 
 uint8_t circularBuffer_freeCapacity(circular_buffer_t* buffer)
 {
     return circularBuffer_capacity(buffer) - circularBuffer_size(buffer);
+}
+
+uint8_t _circularBuffer_getPhysicalIndex(circular_buffer_t* buffer, uint8_t index)
+{
+    if (buffer->length - buffer->front_index > index)
+        return buffer->front_index + index;
+    else
+        return index - (buffer->length - buffer->front_index);
+}
+
+uint8_t _circularBuffer_getRelativeIndex(circular_buffer_t* buffer, uint8_t physical_index)
+{
+    if (physical_index >= buffer->front_index)
+        return physical_index - buffer->front_index;
+    else
+        return (buffer->length - buffer->front_index) + physical_index;
 }

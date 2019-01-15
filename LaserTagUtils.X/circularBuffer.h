@@ -47,4 +47,11 @@ uint8_t circularBuffer_size(circular_buffer_t* buffer);
 // Free Capacity: capacity minus size
 uint8_t circularBuffer_freeCapacity(circular_buffer_t* buffer);
 
+// -- For extension only --
+
+// Given an index, returns the associated physical index, i.e. the location of the data in the backing array
+uint8_t _circularBuffer_getPhysicalIndex(circular_buffer_t* buffer, uint8_t index);
+// Given a physical index, returns the associated relative index, i.e. the index relative to the queue's front index
+uint8_t _circularBuffer_getRelativeIndex(circular_buffer_t* buffer, uint8_t physical_index);
+
 #endif /* CIRCULARBUFFER_H */

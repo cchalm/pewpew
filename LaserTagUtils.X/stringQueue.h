@@ -32,7 +32,7 @@ bool stringQueue_pushPartial(string_queue_t* queue, uint8_t* partial_string, uin
 // popped is the last byte of a string, false otherwise. Returns the data and the length of the returned data as two out
 // parameters. A return value of false with a returned data length of zero indicates that the queue is empty. Partial
 // strings can be popped.
-bool stringQueue_pop(string_queue_t* queue, uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out);
+bool stringQueue_pop(string_queue_t* queue, uint8_t max_length, uint8_t* data_out, uint8_t* length_out);
 
 // The total number of bytes the string queue can hold
 uint8_t stringQueue_capacity(string_queue_t* queue);
@@ -47,5 +47,14 @@ bool stringQueue_hasFullString(string_queue_t* queue);
 
 // Peek at the length of the string at the front of the queue. Linear complexity, with the length of the string
 uint8_t stringQueue_peekStringLength(string_queue_t* queue);
+
+// Only to be used for extension
+// Indexes to these functions are exclusive end indexes, i.e. they point to one byte past the end of a string
+bool _stringQueue_getIsEndOfString(string_queue_t* queue, uint8_t index);
+void _stringQueue_setIsEndOfString(string_queue_t* queue, uint8_t index, bool is_end_of_string);
+// Pop from anywhere in the queue. O(n+m), where n is the distance from the queue's current index to the given index,
+// and m is max_data_length. If popping from the front of the queue, O(m).
+bool _stringQueue_popMiddle(string_queue_t* queue, uint8_t index, uint8_t max_length, uint8_t* data_out,
+                            uint8_t* length_out);
 
 #endif /* STRINGQUEUE_H */
