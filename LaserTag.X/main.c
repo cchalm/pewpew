@@ -208,8 +208,6 @@ static count_t getShotDelay()
     return g_shot_enable_ms_count;
 }
 
-#include "../LaserTagUtils.X/stringQueue.h"
-
 int main(void)
 {
     configureSystem();

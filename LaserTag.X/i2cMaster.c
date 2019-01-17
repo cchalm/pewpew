@@ -1,7 +1,7 @@
 #include "i2cMaster.h"
 
-#include "../LaserTagUtils.X/stringQueue.h"
 #include "../LaserTagUtils.X/keyedStringQueue.h"
+#include "../LaserTagUtils.X/stringQueue.h"
 #include "error.h"
 #include "pins.h"
 
