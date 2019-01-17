@@ -15,7 +15,7 @@ void i2cMaster_read(uint8_t address, uint8_t read_length);
 // actual length of the data as out parameters. Returns true if the returned data includes the last byte of a distinct
 // read, false otherwise. A return value of false with a returned data length of zero indicates that there is no data
 // available
-bool i2cMaster_getReadResults(uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out);
+bool i2cMaster_getReadResults(uint8_t address, uint8_t max_length, uint8_t* data_out, uint8_t* length_out);
 
 // Blocks and pumps the event handler until all queued messages have been sent. This includes reads and writes.
 void i2cMaster_flushQueue(void);

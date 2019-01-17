@@ -1,6 +1,7 @@
 #include "i2cMaster.h"
 
 #include "../LaserTagUtils.X/stringQueue.h"
+#include "../LaserTagUtils.X/keyedStringQueue.h"
 #include "error.h"
 #include "pins.h"
 
@@ -78,9 +79,9 @@ void i2cMaster_read(uint8_t address, uint8_t read_length)
         fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
 }
 
-bool i2cMaster_getReadResults(uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out)
+bool i2cMaster_getReadResults(uint8_t address, uint8_t max_length, uint8_t* data_out, uint8_t* length_out)
 {
-    return stringQueue_pop(&g_incoming_message_queue, max_data_length, data_out, data_length_out);
+    return keyedStringQueue_pop(&g_incoming_message_queue, address, max_length, data_out, length_out);
 }
 
 static bool isOutgoingQueueEmpty()
