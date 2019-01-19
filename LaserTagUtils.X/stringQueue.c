@@ -109,12 +109,12 @@ bool stringQueue_hasFullString(string_queue_t* queue)
     // `end_index`, then there is a full string in the queue
 
     // Length of the "end of string" flag array in bytes
-    uint8_t bitarray_length = (queue->buffer.length + 7) / 8;
+    uint8_t bitarray_length = (queue->buffer.length + 7) >> 3;
 
     // Inclusive start index into bytes of the bitarray
-    uint8_t start_byte_index = increment(queue->buffer.front_index, queue->buffer.length) / 8;
+    uint8_t start_byte_index = increment(queue->buffer.front_index, queue->buffer.length) >> 3;
     // Exclusive end index into bytes of the bitarray
-    uint8_t end_byte_index = increment(queue->buffer.back_index / 8, bitarray_length);
+    uint8_t end_byte_index = increment(queue->buffer.back_index >> 3, bitarray_length);
 
     // TODO mask first and last byte to avoid picking up errant bits
 
