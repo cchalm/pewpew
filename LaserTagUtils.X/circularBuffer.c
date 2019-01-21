@@ -29,26 +29,6 @@ static uint8_t decrement(uint8_t index, uint8_t end)
         return index - 1;
 }
 
-static void incrementFrontIndex(circular_buffer_t* buffer)
-{
-    buffer->front_index = increment(buffer->front_index, buffer->length);
-}
-
-static void incrementBackIndex(circular_buffer_t* buffer)
-{
-    buffer->back_index = increment(buffer->back_index, buffer->length);
-}
-
-static void decrementFrontIndex(circular_buffer_t* buffer)
-{
-    buffer->front_index = decrement(buffer->front_index, buffer->length);
-}
-
-static void decrementBackIndex(circular_buffer_t* buffer)
-{
-    buffer->back_index = decrement(buffer->back_index, buffer->length);
-}
-
 static bool isEmpty(circular_buffer_t* buffer)
 {
     return buffer->back_index == buffer->front_index;
@@ -56,17 +36,7 @@ static bool isEmpty(circular_buffer_t* buffer)
 
 static bool isFull(circular_buffer_t* buffer)
 {
-    return buffer->back_index == buffer->length;
-}
-
-// When setting from "full" to "not full", this must be called *before* incrementing front_index or decrementing
-// back_index
-static void setIsFull(circular_buffer_t* buffer, bool set_is_full)
-{
-    if (set_is_full)
-        buffer->back_index = buffer->length;
-    else if (isFull(buffer))
-        buffer->back_index = buffer->front_index;
+    return buffer->back_index == decrement(buffer->front_index, buffer->length);
 }
 
 bool circularBuffer_pushFront(circular_buffer_t* buffer, uint8_t data)
@@ -74,11 +44,8 @@ bool circularBuffer_pushFront(circular_buffer_t* buffer, uint8_t data)
     if (isFull(buffer))
         return false;
 
-    decrementFrontIndex(buffer);
+    buffer->front_index = decrement(buffer->front_index, buffer->length);
     buffer->storage[buffer->front_index] = data;
-
-    if (buffer->front_index == buffer->back_index)
-        setIsFull(buffer, true);
 
     return true;
 }
@@ -89,10 +56,7 @@ bool circularBuffer_pushBack(circular_buffer_t* buffer, uint8_t data)
         return false;
 
     buffer->storage[buffer->back_index] = data;
-    incrementBackIndex(buffer);
-
-    if (buffer->front_index == buffer->back_index)
-        setIsFull(buffer, true);
+    buffer->back_index = increment(buffer->back_index, buffer->length);
 
     return true;
 }
@@ -103,8 +67,7 @@ bool circularBuffer_popFront(circular_buffer_t* buffer, uint8_t* data_out)
         return false;
 
     *data_out = buffer->storage[buffer->front_index];
-    setIsFull(buffer, false);
-    incrementFrontIndex(buffer);
+    buffer->front_index = increment(buffer->front_index, buffer->length);
 
     return true;
 }
@@ -114,8 +77,7 @@ bool circularBuffer_popBack(circular_buffer_t* buffer, uint8_t* data_out)
     if (isEmpty(buffer))
         return false;
 
-    setIsFull(buffer, false);
-    decrementBackIndex(buffer);
+    buffer->back_index = decrement(buffer->back_index, buffer->length);
     *data_out = buffer->storage[buffer->back_index];
 
     return true;
@@ -133,7 +95,7 @@ void circularBuffer_set(circular_buffer_t* buffer, uint8_t index, uint8_t value)
 
 uint8_t* circularBuffer_at(circular_buffer_t* buffer, uint8_t index)
 {
-    if (index >= buffer->length)
+    if (index >= circularBuffer_capacity(buffer))
         return 0;
 
     return buffer->storage + _circularBuffer_getPhysicalIndex(buffer, index);
@@ -141,13 +103,10 @@ uint8_t* circularBuffer_at(circular_buffer_t* buffer, uint8_t index)
 
 uint8_t circularBuffer_capacity(circular_buffer_t* buffer)
 {
-    return buffer->length;
+    return buffer->length - 1;
 }
 uint8_t circularBuffer_size(circular_buffer_t* buffer)
 {
-    if (isFull(buffer))
-        return buffer->length;
-
     // The relative index of the physical back index is the size of the buffer
     return _circularBuffer_getRelativeIndex(buffer, buffer->back_index);
 }
