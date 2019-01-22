@@ -344,7 +344,7 @@ bool irTransmitter_transmitAsync(uint16_t data, uint8_t length)
     for (uint8_t i = 0; i < length; i++)
     {
         TMR2_t pulse_width
-            = ((data >> (length - i)) & 1) ? ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
+            = ((data >> (length - i - 1)) & 1) ? ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
 
         queue_push(&g_outgoing_pulse_widths, pulse_width);
 
