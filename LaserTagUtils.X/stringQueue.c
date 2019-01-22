@@ -57,7 +57,7 @@ bool stringQueue_pop(string_queue_t* queue, uint8_t max_length, uint8_t* data_ou
     uint8_t i = 0;
     // No need to check for an empty byte queue - the last byte will be flagged
     // as the end of a string
-    while (i < max_length && !found_last_byte)
+    while (i < max_length && stringQueue_size(queue) != 0 && !found_last_byte)
     {
         circularBuffer_popFront(&queue->buffer, data_out + i);
         // We just popped a byte from the front of the queue, so index 0 points one past that byte
@@ -108,11 +108,15 @@ bool stringQueue_hasFullString(string_queue_t* queue)
     // If there are any set bits in the "end of string" flag array bytes covering the range between `index` and
     // `end_index`, then there is a full string in the queue
 
+    if (stringQueue_size(queue) == 0)
+        return false;
+
     // Length of the "end of string" flag array in bytes
     uint8_t bitarray_length = (queue->buffer.length + 7) >> 3;
 
     // Inclusive start index into bytes of the bitarray
     uint8_t start_byte_index = increment(queue->buffer.front_index, queue->buffer.length) >> 3;
+
     // Exclusive end index into bytes of the bitarray
     uint8_t end_byte_index = increment(queue->buffer.back_index >> 3, bitarray_length);
 
