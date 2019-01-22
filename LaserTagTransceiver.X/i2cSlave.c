@@ -34,11 +34,10 @@ void i2cSlave_initialize()
     TRIS_SDA = 1;
 
     SSP1CON1bits.SSPEN = 1;
-    // Select I2C Slave mode, with 7-bit address, and start/stop interrupts determined by PCIE and SCIE
+    // Select I2C Slave mode, with 7-bit address, and start/stop interrupts determined by PCIE and SCIE (off by default)
     SSP1CON1bits.SSPM = 0b0110;
-
-    // Enable stop condition interrupts, so that the software knows when a transmission is finished
-    SSP1CON3bits.PCIE = 1;
+    // Enable clock stretching, which allows the slave to slow down data reception/transmission if needed
+    SSP1CON2bits.SEN = 1;
 
     // Set our address to a randomly picked number. Shift left one because the
     // address goes in bits 1-7 of the register
@@ -48,12 +47,19 @@ void i2cSlave_initialize()
     g_incoming_message_queue = stringQueue_create(g_incoming_message_queue_storage, INCOMING_MESSAGE_QUEUE_LENGTH);
 }
 
+void i2cSlave_shutdown()
+{
+    SSP1CON1bits.SSPEN = 0;
+}
+
 bool i2cSlave_read(uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out)
 {
     if (stringQueue_hasFullString(&g_incoming_message_queue))
+    {
         return stringQueue_pop(&g_incoming_message_queue, max_data_length, data_out, data_length_out);
+    }
 
-    data_length_out = 0;
+    *data_length_out = 0;
     return false;
 }
 
@@ -81,6 +87,8 @@ static void stateChange_awaitData()
     // SSP1STATbits.BF = 0;
     // Read from SSP1BUF to clear SSP1STATbits.BF
     uint8_t tmp = SSP1BUF;
+    // Release the clock
+    CKP = 1;
 
     g_i2c_module_state = I2C_STATE_AWAITING_DATA;
 }
@@ -88,8 +96,6 @@ static void stateChange_awaitData()
 static void stateChange_readByte()
 {
     uint8_t data = SSP1BUF;
-    // Acknowledge the byte
-    ACKDT = 0;
     // Release the clock
     CKP = 1;
 
@@ -128,9 +134,14 @@ static void stateChange_endWrite()
 
 void i2cSlave_eventHandler(void)
 {
+    // SSP1IF doesn't get set when the master ends a transmission, so poll for it
+    if ((g_i2c_module_state == I2C_STATE_AWAITING_DATA) && SSP1STATbits.P)
+    {
+        stateChange_endRead();
+    }
+
     // Detecting and handling the SSP1 interrupt flag in a non-interrupting way,
     // as the handling code is not urgent
-
     if (!SSP1IF)
         return;
 
@@ -154,11 +165,7 @@ void i2cSlave_eventHandler(void)
 
         case I2C_STATE_AWAITING_DATA:
         {
-            bool stop = SSP1STATbits.P;
-            if (stop)
-                stateChange_endRead();
-            else
-                stateChange_readByte();
+            stateChange_readByte();
 
             break;
         }
@@ -177,4 +184,5 @@ void i2cSlave_eventHandler(void)
         default:
             fatal(ERROR_I2C_UNEXPECTED_STATE);
     }
+    PIN_ERROR_LED = 0;
 }

@@ -3,6 +3,7 @@
 #include "IRReceiver.h"
 #include "IRTransmitter.h"
 #include "i2cSlave.h"
+#include "pins.h"
 
 #include <xc.h>
 
@@ -27,6 +28,15 @@ void configureSystem(void)
     // Wait for the oscillator to be ready before continuing
     while (!OSTS)
         ;
+
+    TRIS_ERROR_LED = 0;
+}
+
+void shutdownSystem(void)
+{
+    irReceiver_shutdown();
+    irTransmitter_shutdown();
+    i2cSlave_shutdown();
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)

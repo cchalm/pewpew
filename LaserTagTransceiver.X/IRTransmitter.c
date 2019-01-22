@@ -350,6 +350,11 @@ void irTransmitter_initialize()
     configureCLC1();
 }
 
+void irTransmitter_shutdown()
+{
+    disableTransmissionModules();
+}
+
 void irTransmitter_interruptHandler()
 {
     if (!(TMR2IF && TMR2IE))

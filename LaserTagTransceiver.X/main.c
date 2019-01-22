@@ -45,6 +45,44 @@
 #include <stdint.h>
 #include <xc.h>
 
+static void receiveDataOverIR()
+{
+    uint8_t received_data_length;
+    uint16_t received_data;
+    if (irReceiver_tryGetTransmission(&received_data, &received_data_length))
+    {
+        // Send the received transmission length and the data to the main processor
+        uint8_t data[] = {received_data_length, (uint8_t)received_data, (uint8_t)(received_data >> 8)};
+        i2cSlave_write(data, 3);
+    }
+}
+
+static void transmitDataOverIR()
+{
+    uint8_t i2c_message[3];
+    uint8_t i2c_message_length;
+    bool is_whole_message = i2cSlave_read(3, i2c_message, &i2c_message_length);
+    if (i2c_message_length != 0)
+    {
+        if (!is_whole_message)
+        {
+            fatal(ERROR_TRANSMISSION_TOO_LONG);
+            // If we ever choose to ignore this error, we must flush the remainder of the message before proceeding
+        }
+
+        // Length in bits
+        uint8_t transmission_length = i2c_message[0];
+        uint16_t data_to_transmit = 0;
+
+        for (uint8_t i = 0; i < i2c_message_length - 1; i++)
+        {
+            data_to_transmit |= (i2c_message[i + 1] << (i << 3));
+        }
+
+        irTransmitter_transmitAsync(data_to_transmit, transmission_length);
+    }
+}
+
 int main(void)
 {
     configureSystem();
@@ -52,30 +90,14 @@ int main(void)
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
-    uint16_t loop_counter = 0;
-
     while (true)
     {
         irTransmitter_eventHandler();
         irReceiver_eventHandler();
         i2cSlave_eventHandler();
 
-        uint8_t received_data_length;
-        uint16_t received_data;
-        if (irReceiver_tryGetTransmission(&received_data, &received_data_length))
-        {
-            NOP();
-            // TODO send data across UART or similar
-        }
-
-        // A crude non-blocking delay system, for testing
-        if (loop_counter == 0)
-        {
-            irTransmitter_transmitAsync(0b10001111, 8);
-            loop_counter = 4000;
-        }
-
-        loop_counter--;
+        receiveDataOverIR();
+        transmitDataOverIR();
     }
 }
 

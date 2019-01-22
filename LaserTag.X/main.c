@@ -208,6 +208,30 @@ static count_t getShotDelay()
     return g_shot_enable_ms_count;
 }
 
+static void testTransceiver()
+{
+    static uint16_t loop_count = 0;
+
+    if (loop_count == 0)
+    {
+        loop_count = 1000;
+
+        i2cMaster_read(0b1010001, 3);
+
+        uint8_t test_transmission[] = {10, 0b10110111, 0b01};
+        i2cMaster_write(0b1010001, test_transmission, 3);
+
+        i2cMaster_flushQueue();
+
+        uint8_t test_received_data[3];
+        uint8_t received_data_length;
+
+        bool is_whole_message = i2cMaster_getReadResults(0b1010001, 3, test_received_data, &received_data_length);
+    }
+
+    loop_count--;
+}
+
 int main(void)
 {
     configureSystem();
@@ -248,15 +272,14 @@ int main(void)
     bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
     bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
 
-    i2cMaster_read(0b1010001, 5);
-    i2cMaster_flushQueue();
-
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
     while (true)
     {
         i2cMaster_eventHandler();
+
+        testTransceiver();
 
         uint8_t received_data;
         if (tryGetPacket(&received_data))
@@ -357,7 +380,7 @@ void __interrupt() ISR(void)
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 % 2) << (PACKET_LENGTH - 1));
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 & 1) << (PACKET_LENGTH - 1));
 #endif
 
     bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);

@@ -148,12 +148,23 @@ static void configureTMR4(void)
 
 void receiverStaticAsserts(void);
 
+static void disableReceptionModules(void)
+{
+    TMR4ON = 0;
+    SMT1CON0bits.EN = 0;
+}
+
 void irReceiver_initialize(void)
 {
     receiverStaticAsserts();
 
     configureSMT1();
     configureTMR4();
+}
+
+void irReceiver_shutdown(void)
+{
+    disableReceptionModules();
 }
 
 // Minimum gap between distinct transmissions in terms of SMT1 clock cycles

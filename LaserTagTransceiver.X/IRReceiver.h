@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 void irReceiver_initialize(void);
+void irReceiver_shutdown(void);
 
 void irReceiver_interruptHandler(void);
 void irReceiver_eventHandler(void);

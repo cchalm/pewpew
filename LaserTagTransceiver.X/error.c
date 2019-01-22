@@ -9,6 +9,8 @@
 void fatal(uint16_t error_code)
 {
     GIE = 0;
+    // Disable all system modules to stop asynchronous behavior and release shared buses
+    shutdownSystem();
     // Disable all output drivers
     // TRISA = ~0;
     // TRISB = ~0;
@@ -19,7 +21,7 @@ void fatal(uint16_t error_code)
     delay(50);
     while (1)
     {
-        for (int i = 0; i < 5; i++)
+        for (uint8_t i = 0; i < 5; i++)
         {
             if ((error_code & (1 << i)) != 0)
             {

@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 void i2cSlave_initialize(void);
+void i2cSlave_shutdown(void);
+
 void i2cSlave_eventHandler(void);
 
 // Read one message from the master. Takes the maximum number of bytes to return. Returns the data and the number of
