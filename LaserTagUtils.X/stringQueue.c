@@ -54,10 +54,14 @@ bool stringQueue_pop(string_queue_t* queue, uint8_t max_length, uint8_t* data_ou
 {
     bool found_last_byte = false;
 
+    uint8_t queue_size = stringQueue_size(queue);
+    if (max_length > queue_size)
+        max_length = queue_size;
+
     uint8_t i = 0;
     // No need to check for an empty byte queue - the last byte will be flagged
     // as the end of a string
-    while (i < max_length && stringQueue_size(queue) != 0 && !found_last_byte)
+    while (i < max_length && !found_last_byte)
     {
         circularBuffer_popFront(&queue->buffer, data_out + i);
         // We just popped a byte from the front of the queue, so index 0 points one past that byte
