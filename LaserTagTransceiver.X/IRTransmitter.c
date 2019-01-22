@@ -1,5 +1,6 @@
 #include "IRTransmitter.h"
 
+#include "../LaserTagUtils.X/queue.h"
 #include "clc.h"
 #include "error.h"
 #include "pins.h"
@@ -217,69 +218,47 @@ static void configureCLC1(void)
 
 typedef uint8_t TMR2_t;
 
-static bool g_transmitting = false;
-static uint16_t g_data_to_transmit = 0;
-static uint8_t g_data_length = 0;
+// Double the maximum transmission length in bits
+#define OUTGOING_PULSE_WIDTHS_STORAGE_SIZE 128
+static uint8_t g_outgoing_pulse_widths_storage[OUTGOING_PULSE_WIDTHS_STORAGE_SIZE];
+// Active and inactive pulse widths
+static queue_t g_outgoing_pulse_widths;
 
-// Set to true by interrupt handler to indicate that a period match occurred
-static volatile bool g_period_match = false;
-
-static void setNextPeriod(bool* next_match_ends_transmission_out)
+static void disableTransmissionModules(void)
 {
-    // Send MSB first
-    static uint8_t transmission_data_index = 0;
-    static bool is_output_high = false;
+    // Disable output driver for the IR LED pin
+    TRIS_IR_LED = 1;
+    // Disable CLC1
+    LC1EN = 0;
 
-    // We're always one output cycle ahead. When the output is low, we're
-    // setting the period of the following high pulse, and vice versa.
+    // Disable CLC2
+    LC2EN = 0;
 
-    if (is_output_high)
-    {
-        // Output is high. Set the period of the next low pulse
+    // Disable interrupts from modulation timer
+    TMR2IE = 0;
+    // Disable modulation timer
+    TMR2ON = 0;
 
-        if (transmission_data_index == g_data_length)
-        {
-            // We're in the middle of the final high pulse, so the next period
-            // match is the final match in this transmission
+    // Disable PWM
+    PWM3EN = 0;
 
-            *next_match_ends_transmission_out = true;
+    // Disable PWM timer
+    TMR6ON = 0;
+}
 
-            // Reset the data index for the next transmission
-            transmission_data_index = 0;
+static void endTransmission(void)
+{
+    disableTransmissionModules();
+}
 
-            // Set the period to something high, to give us time to disable the
-            // interrupts etc before the next match. Setting to zero doesn't
-            // work, because the timer will be reset to 0 on the next cycle (if
-            // it hasn't already)
-            PR2 = 0xFF;
-        }
-        else
-        {
-            // Load the desired gap length into the timer's period register.
-            // The timer resets to zero on the clock cycle following a match,
-            // not on the same clock cycle as the match. Subtract one from the
-            // pulse length to compensate
-            PR2 = PULSE_GAP_LENGTH_TMR2_CYCLES - 1;
-        }
-    }
-    else  // output is low
-    {
-        // Output is low. Set the period of the next high pulse
-
-        transmission_data_index++;
-
-        TMR2_t pulse_width = ((g_data_to_transmit >> (g_data_length - transmission_data_index)) & 1)
-                                 ? ONE_PULSE_LENGTH_TMR2_CYCLES
-                                 : ZERO_PULSE_LENGTH_TMR2_CYCLES;
-
-        // Load the desired pulse length into the modulation timer's period
-        // register. The timer resets to zero on the clock cycle following a
-        // match, not on the same clock cycle as the match. Subtract one from
-        // the pulse length to compensate
-        PR2 = pulse_width - 1;
-    }
-
-    is_output_high = !is_output_high;
+static void setNextPeriod(void)
+{
+    uint8_t pulse_width;
+    bool empty = !queue_pop(&g_outgoing_pulse_widths, &pulse_width);
+    if (empty)
+        endTransmission();
+    else
+        PR2 = pulse_width;
 }
 
 static void enableTransmissionModules(void)
@@ -306,7 +285,7 @@ static void enableTransmissionModules(void)
 
     // Set the period of the next pulse. This will get copied to the actual
     // period buffer on the next period match, the one we hard-coded above
-    setNextPeriod(NULL);
+    setNextPeriod();
 
     // Enable CLC2
     LC2EN = 1;
@@ -315,28 +294,6 @@ static void enableTransmissionModules(void)
     LC1EN = 1;
     // Enable output driver for the IR LED pin
     TRIS_IR_LED = 0;
-}
-
-static void disableTransmissionModules(void)
-{
-    // Disable output driver for the IR LED pin
-    TRIS_IR_LED = 1;
-    // Disable CLC1
-    LC1EN = 0;
-
-    // Disable CLC2
-    LC2EN = 0;
-
-    // Disable interrupts from modulation timer
-    TMR2IE = 0;
-    // Disable modulation timer
-    TMR2ON = 0;
-
-    // Disable PWM
-    PWM3EN = 0;
-
-    // Disable PWM timer
-    TMR6ON = 0;
 }
 
 void irTransmitter_initialize()
@@ -348,6 +305,8 @@ void irTransmitter_initialize()
     configureTimer2();
     configureCLC2();
     configureCLC1();
+
+    g_outgoing_pulse_widths = queue_create(g_outgoing_pulse_widths_storage, OUTGOING_PULSE_WIDTHS_STORAGE_SIZE);
 }
 
 void irTransmitter_shutdown()
@@ -360,52 +319,47 @@ void irTransmitter_interruptHandler()
     if (!(TMR2IF && TMR2IE))
         return;
 
-    if (g_period_match)
+    // Reset flag
+    TMR2IF = 0;
+
+    uint8_t pulse_width;
+    bool empty = !queue_pop(&g_outgoing_pulse_widths, &pulse_width);
+    if (empty)
+        endTransmission();
+    else
+        PR2 = pulse_width;
+
+    // Imperfect check for interrupt overlap
+    if (TMR2IF)
     {
         fatal(ERROR_UNHANDLED_PERIOD_MATCH);
     }
-
-    g_period_match = true;
-
-    // Reset flag
-    TMR2IF = 0;
-}
-
-static void endTransmission(void)
-{
-    disableTransmissionModules();
-    // Let the main program know we're done transmitting
-    g_transmitting = false;
-}
-
-void irTransmitter_eventHandler(void)
-{
-    if (!g_period_match)
-        return;
-
-    static bool next_match_ends_transmission = false;
-
-    if (next_match_ends_transmission)
-    {
-        endTransmission();
-        next_match_ends_transmission = false;
-    }
-    else
-    {
-        setNextPeriod(&next_match_ends_transmission);
-    }
-
-    g_period_match = false;
 }
 
 bool irTransmitter_transmitAsync(uint16_t data, uint8_t length)
 {
-    if (g_transmitting)
+    if (queue_size(&g_outgoing_pulse_widths) != 0)
         return false;
-    g_transmitting = true;
 
-    g_data_to_transmit = data;
-    g_data_length = length;
+    for (uint8_t i = 0; i < length; i++)
+    {
+        TMR2_t pulse_width
+            = ((data >> (length - i)) & 1) ? ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
+
+        queue_push(&g_outgoing_pulse_widths, pulse_width);
+
+        if (i == length - 1)
+        {
+            // Push a large gap width after the final active pulse. During this gap we will detect that the transmission
+            // is finished and disable the output modules, so we're making it large so that the an errant pulse doesn't
+            // start before we get around to disabling the modules
+            queue_push(&g_outgoing_pulse_widths, 0xFF);
+        }
+        else
+        {
+            queue_push(&g_outgoing_pulse_widths, PULSE_GAP_LENGTH_TMR2_CYCLES - 1);
+        }
+    }
 
     // This starts the asynchronous dominoes that send the transmission
     enableTransmissionModules();

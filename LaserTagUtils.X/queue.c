@@ -14,7 +14,7 @@ bool queue_push(queue_t* queue, uint8_t data)
 
 bool queue_pop(queue_t* queue, uint8_t* data_out)
 {
-    return circularBuffer_popBack(queue, data_out);
+    return circularBuffer_popFront(queue, data_out);
 }
 
 uint8_t queue_capacity(queue_t* queue)

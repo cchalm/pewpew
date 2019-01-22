@@ -92,7 +92,6 @@ int main(void)
 
     while (true)
     {
-        irTransmitter_eventHandler();
         irReceiver_eventHandler();
         i2cSlave_eventHandler();
 

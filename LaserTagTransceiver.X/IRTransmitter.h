@@ -8,7 +8,6 @@ void irTransmitter_initialize(void);
 void irTransmitter_shutdown(void);
 
 void irTransmitter_interruptHandler(void);
-void irTransmitter_eventHandler(void);
 
 // Asynchronously transmit the given bits over IR. If a transmission is in
 // progress, returns false and does nothing. Otherwise returns true
