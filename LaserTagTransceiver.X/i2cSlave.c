@@ -184,5 +184,4 @@ void i2cSlave_eventHandler(void)
         default:
             fatal(ERROR_I2C_UNEXPECTED_STATE);
     }
-    PIN_ERROR_LED = 0;
 }

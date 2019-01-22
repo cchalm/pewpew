@@ -92,7 +92,6 @@ int main(void)
 
     while (true)
     {
-        irReceiver_eventHandler();
         i2cSlave_eventHandler();
 
         receiveDataOverIR();

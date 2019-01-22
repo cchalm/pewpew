@@ -1,6 +1,7 @@
 #include "IRReceiver.h"
 #include <xc.h>
 
+#include "../LaserTagUtils.X/queue.h"
 #include "IRReceiverStats.h"
 #include "error.h"
 #include "pins.h"
@@ -13,7 +14,9 @@
  *
  * We're using a Signal Measurement Timer (SMT) module for timing incoming
  * transmissions. We are using it in High and Low Measure Mode. We only have the
- * falling edge interrupt enabled.
+ * falling edge interrupt enabled. The electrical signal is active-low but
+ * inverted by the SMT module. When this documentation refers to a "falling
+ * edge", for example, that will look like a rising edge on an oscilloscope.
  *
  * On a rising edge:
  *    - Automatic: SMTxTMR is latched into SMTxCPR
@@ -98,8 +101,8 @@ static void configureSMT1(void)
 
     // Halt on period match
     SMT1CON0bits.STP = 1;
-    // Don't allow SMT1TMR to increment beyond an 8-bit value
-    SMT1PR = 255;
+    // Don't allow SMT1TMR to increment beyond an 8-bit value, minus one. 0xFF is reserved to mean "long gap"
+    SMT1PR = 0xFE;
     // Disable period match interrupts
     SMT1IE = 0;
 
@@ -119,6 +122,16 @@ static void configureSMT1(void)
 
 // Minimum gap between distinct transmissions in terms of TMR4 clock cycles
 #define MIN_TRANSMISSION_GAP_LENGTH_TMR4_CYCLES ((MIN_TRANSMISSION_GAP_LENGTH_MOD_CYCLES) * (TMR4_MOD_FREQ_RATIO))
+
+// We have limited the period of the SMT timer such that its value always fits
+// in 8 bits
+typedef uint8_t SMT1_t;
+
+// Double the maximum transmission length in bits, plus one
+#define INCOMING_PULSE_WIDTHS_STORAGE_SIZE 129
+static uint8_t g_incoming_pulse_widths_storage[INCOMING_PULSE_WIDTHS_STORAGE_SIZE];
+// Active and inactive pulse widths
+static queue_t g_incoming_pulse_widths;
 
 static void configureTMR4(void)
 {
@@ -160,6 +173,8 @@ void irReceiver_initialize(void)
 
     configureSMT1();
     configureTMR4();
+
+    g_incoming_pulse_widths = queue_create(g_incoming_pulse_widths_storage, INCOMING_PULSE_WIDTHS_STORAGE_SIZE);
 }
 
 void irReceiver_shutdown(void)
@@ -190,46 +205,26 @@ void irReceiver_shutdown(void)
 #define ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES \
     ((ONE_PULSE_LENGTH_LOWER_BOUND_MOD_CYCLES_x10) * (SMT1_MOD_FREQ_RATIO) / 10)
 
-// We have limited the period of the SMT timer such that its value always fits
-// in 8 bits
-typedef uint8_t SMT1_t;
-
-// Index of the bit we're waiting to receive
-static uint8_t g_bit_index = 0;
-// Stores transmission data as it comes in
-static uint16_t g_transmission_data_accumulator = 0;
-static bool g_wait_for_silence = false;
-
-static bool g_transmission_received = false;
-static uint8_t g_transmission_length = 0;
-static uint16_t g_transmission_data = 0;
-
-static volatile bool g_pulse_received = false;
-// Set by the interrupt handler, cleared by mainline code when read
-static volatile SMT1_t g_pulse_length;
-static volatile SMT1_t g_gap_length;
-
-// Record the pulse lengths of the last received transmission
-#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-static SMT1_t g_pulse_lengths[MAX_TRANSMISSION_LENGTH];
-static SMT1_t g_gap_lengths[MAX_TRANSMISSION_LENGTH];
-#endif
-
 static void SMT1InterruptHandler()
 {
-    if (!(SMT1PWAIE && SMT1PWAIF))
+    if (!(SMT1PWAIF && SMT1PWAIE))
         return;
 
-    if (g_pulse_received)
-        fatal(ERROR_UNHANDLED_PULSE_MEASUREMENT);
+    SMT1PWAIF = 0;
 
     // We only need to grab the low (L) 8 bits because we've limited the max
     // timer value
-    g_gap_length = SMT1CPRL;
-    g_pulse_length = SMT1CPWL;
-    g_pulse_received = true;
+    uint8_t gap_length = SMT1CPRL;
+    uint8_t pulse_length = SMT1CPWL;
 
-    SMT1PWAIF = 0;
+    queue_push(&g_incoming_pulse_widths, gap_length);
+    queue_push(&g_incoming_pulse_widths, pulse_length);
+
+    // Imperfect check for interrupt overlap
+    if (SMT1PWAIF)
+    {
+        fatal(ERROR_UNHANDLED_PULSE_MEASUREMENT);
+    }
 }
 
 static void TMR4InterruptHandler()
@@ -237,19 +232,15 @@ static void TMR4InterruptHandler()
     if (!(TMR4IE && TMR4IF))
         return;
 
-    if (!g_wait_for_silence)
-    {
-        g_transmission_data = g_transmission_data_accumulator;
-        g_transmission_length = g_bit_index;
-        g_transmission_received = true;
-    }
+    TMR4IF = 0;
+
+    // Push the reserved value 0xFF onto the queue to indicate "long gap"
+    queue_push(&g_incoming_pulse_widths, 0xFF);
 
     // Turn the timer back on, as the period match that triggered this interrupt
     // also turned off the timer. It will resume counting on the next
     // active --> inactive transition on the transmission line
     TMR4ON = 1;
-
-    TMR4IF = 0;
 }
 
 void irReceiver_interruptHandler()
@@ -258,84 +249,90 @@ void irReceiver_interruptHandler()
     SMT1InterruptHandler();
 }
 
-void irReceiver_eventHandler(void)
+static bool tryDecodePulseLength(uint8_t pulse_length, uint8_t* bit_out)
 {
-    if (g_pulse_received)
+    // TODO consider loading these macros into constants to avoid evaluating them multiple times
+    if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
+        && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
     {
-        // Copy these to reduce the chance of them getting written to while
-        // we're using them
-        SMT1_t pulse_length = g_pulse_length;
-        SMT1_t gap_length = g_gap_length;
-
-        // Since we copied the values, let another pulse come in
-        g_pulse_received = false;
-
-        if (gap_length >= MIN_TRANSMISSION_GAP_LENGTH_SMT1_CYCLES)
-        {
-            // Long silence, reset
-            g_transmission_data_accumulator = 0;
-            g_bit_index = 0;
-
-            g_wait_for_silence = false;
-        }
-
-        if (!g_wait_for_silence)
-        {
-#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-            g_pulse_lengths[g_bit_index] = pulse_length;
-            g_gap_lengths[g_bit_index] = gap_length;
-#endif
-
-            if (pulse_length > ZERO_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                && pulse_length < ZERO_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
-            {
-                // Received a 0
-                g_transmission_data_accumulator <<= 1;
-                g_bit_index++;
-            }
-            else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
-                     && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
-            {
-                // Received a 1
-                g_transmission_data_accumulator = (g_transmission_data_accumulator << 1) | 1;
-                g_bit_index++;
-            }
-            else
-            {
-                // Invalid pulse width. Something has gone wrong, so we're going to stop reading in data and wait until
-                // we see a long period of silence
-
-                g_wait_for_silence = true;
-            }
-        }
+        *bit_out = 0;
+        return true;
+    }
+    else if (pulse_length > ONE_PULSE_LENGTH_LOWER_BOUND_SMT1_CYCLES
+             && pulse_length < ONE_PULSE_LENGTH_UPPER_BOUND_SMT1_CYCLES)
+    {
+        *bit_out = 1;
+        return true;
+    }
+    else
+    {
+        // Invalid pulse width
+        return false;
     }
 }
 
 bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
 {
-    if (!g_transmission_received)
-        return false;
+    // Accumulate using a static variable, in case a client calls this before we've received all of a transmission
+    static uint16_t data_accumulator = 0;
+    static uint8_t data_length = 0;
+    // A boolean indicating that the transmission currently being analyzed should be discarded
+    static bool invalid_transmission = false;
 
-    *data_out = g_transmission_data;
-    *data_length_out = g_transmission_length;
-    // Reset transmission received flag until the next transmission
-    g_transmission_received = false;
+    while (queue_size(&g_incoming_pulse_widths) != 0)
+    {
+        uint8_t gap_length;
+        queue_pop(&g_incoming_pulse_widths, &gap_length);
 
-    return true;
+        // 0xFF is a reserved value meaning "end of transmission"
+        if (gap_length == 0xFF)
+        {
+            if (!invalid_transmission)
+            {
+                *data_out = data_accumulator;
+                *data_length_out = data_length;
+                data_accumulator = 0;
+                data_length = 0;
+                return true;
+            }
+            else
+            {
+                // We've reached the end of the invalid transmission, so try the next one
+                invalid_transmission = false;
+                data_accumulator = 0;
+                data_length = 0;
+                continue;
+            }
+        }
+
+        uint8_t pulse_length;
+        bool empty = !queue_pop(&g_incoming_pulse_widths, &pulse_length);
+
+        // There must be another element in the queue, because gap and pulse lengths are added in pairs except for the
+        // terminating gap, which we checked for above
+        if (empty)
+            fatal(ERROR_INCOMING_PULSE_LENGTHS_QUEUE_EMPTY);
+
+        // Don't bother analyzing the pulse length if the transmission is invalid
+        if (invalid_transmission)
+            continue;
+
+        uint8_t bit;
+        bool is_valid_pulse_length = tryDecodePulseLength(pulse_length, &bit);
+        if (is_valid_pulse_length)
+        {
+            data_accumulator = (data_accumulator << 1) | bit;
+            data_length++;
+        }
+        else
+        {
+            // Invalid pulse width. Something has gone wrong, so we're going to ignore this transmission
+            invalid_transmission = true;
+        }
+    }
+
+    return false;
 }
-
-#ifdef DEBUG_RECEIVED_PULSE_LENGTHS
-const size_t PULSE_LENGTH_ARRAY_SIZE = MAX_TRANSMISSION_LENGTH * sizeof(SMT1_t);
-
-SMT1_t* getPulseLengthArray()
-{
-    return g_pulse_lengths;
-}
-SMT1_t* getGapLengthArray()
-{
-    return g_gap_lengths;
-}
-#endif
 
 void receiverStaticAsserts(void)
 {
