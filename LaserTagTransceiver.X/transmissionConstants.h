@@ -23,8 +23,8 @@
 
 #define MODULATION_FREQ (RECEIVER_MODULATION_FREQ)
 
-// Max transmission length in bits, as determined by chosen storage types
-#define MAX_TRANSMISSION_LENGTH 16
+// Max transmission length in bits
+#define MAX_TRANSMISSION_LENGTH 120
 
 /*
  * A zero pulse is 10 modulation cycles

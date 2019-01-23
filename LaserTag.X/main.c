@@ -218,7 +218,7 @@ static void testTransceiver()
 
         i2cMaster_read(0b1010001, 3);
 
-        uint8_t test_transmission[] = {10, 0b10110111, 0b01};
+        uint8_t test_transmission[] = {10, 0b10110111, 0b01000000};
         i2cMaster_write(0b1010001, test_transmission, 3);
 
         i2cMaster_flushQueue();

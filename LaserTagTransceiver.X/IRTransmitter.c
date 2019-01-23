@@ -1,5 +1,6 @@
 #include "IRTransmitter.h"
 
+#include "../LaserTagUtils.X/bitArray.h"
 #include "../LaserTagUtils.X/queue.h"
 #include "clc.h"
 #include "error.h"
@@ -219,7 +220,7 @@ static void configureCLC1(void)
 typedef uint8_t TMR2_t;
 
 // Double the maximum transmission length in bits
-#define OUTGOING_PULSE_WIDTHS_STORAGE_SIZE 128
+#define OUTGOING_PULSE_WIDTHS_STORAGE_SIZE ((MAX_TRANSMISSION_LENGTH) << 1)
 static uint8_t g_outgoing_pulse_widths_storage[OUTGOING_PULSE_WIDTHS_STORAGE_SIZE];
 // Active and inactive pulse widths
 static queue_t g_outgoing_pulse_widths;
@@ -336,15 +337,16 @@ void irTransmitter_interruptHandler()
     }
 }
 
-bool irTransmitter_transmitAsync(uint16_t data, uint8_t length)
+bool irTransmitter_transmitAsync(uint8_t* data, uint8_t length)
 {
     if (queue_size(&g_outgoing_pulse_widths) != 0)
         return false;
 
     for (uint8_t i = 0; i < length; i++)
     {
-        TMR2_t pulse_width
-            = ((data >> (length - i - 1)) & 1) ? ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
+        // Byte order: little endian, e.g. byte at index 0 is output first
+        // Bit order: big endian, e.g. bit at index 0 is output last
+        TMR2_t pulse_width = bitArray_getBit(data, i) ? ONE_PULSE_LENGTH_TMR2_CYCLES : ZERO_PULSE_LENGTH_TMR2_CYCLES;
 
         queue_push(&g_outgoing_pulse_widths, pulse_width);
 

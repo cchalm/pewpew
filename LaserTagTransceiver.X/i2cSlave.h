@@ -15,7 +15,7 @@ void i2cSlave_eventHandler(void);
 bool i2cSlave_read(uint8_t max_data_length, uint8_t* data_out, uint8_t* data_length_out);
 // Queue data to be sent to the master. This data is not organized into distinct messages. The master determines how
 // many bytes to read at a time. Delimiting messages, if desired, must be done by the caller and coordinated between the
-// master and slave software.
+// master and slave software. The given data is copied into an internal buffer
 void i2cSlave_write(uint8_t* data, uint8_t data_length);
 
 #endif /* I2CMASTER_H */

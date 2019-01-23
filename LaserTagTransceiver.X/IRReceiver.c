@@ -1,6 +1,7 @@
 #include "IRReceiver.h"
 #include <xc.h>
 
+#include "../LaserTagUtils.X/bitArray.h"
 #include "../LaserTagUtils.X/queue.h"
 #include "IRReceiverStats.h"
 #include "error.h"
@@ -128,7 +129,7 @@ static void configureSMT1(void)
 typedef uint8_t SMT1_t;
 
 // Double the maximum transmission length in bits, plus one
-#define INCOMING_PULSE_WIDTHS_STORAGE_SIZE 129
+#define INCOMING_PULSE_WIDTHS_STORAGE_SIZE ((MAX_TRANSMISSION_LENGTH) << 1) + 1
 static uint8_t g_incoming_pulse_widths_storage[INCOMING_PULSE_WIDTHS_STORAGE_SIZE];
 // Active and inactive pulse widths
 static queue_t g_incoming_pulse_widths;
@@ -271,10 +272,11 @@ static bool tryDecodePulseLength(uint8_t pulse_length, uint8_t* bit_out)
     }
 }
 
-bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
+bool irReceiver_tryGetTransmission(uint8_t* data_out, uint8_t* data_length_out)
 {
-    // Accumulate using a static variable, in case a client calls this before we've received all of a transmission
-    static uint16_t data_accumulator = 0;
+    // data_out must be a static buffer. We're going to use it to accumulate the transmission bits.
+
+    // Length of the current transmission in bits
     static uint8_t data_length = 0;
     // A boolean indicating that the transmission currently being analyzed should be discarded
     static bool invalid_transmission = false;
@@ -289,9 +291,7 @@ bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
         {
             if (!invalid_transmission)
             {
-                *data_out = data_accumulator;
                 *data_length_out = data_length;
-                data_accumulator = 0;
                 data_length = 0;
                 return true;
             }
@@ -299,11 +299,14 @@ bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
             {
                 // We've reached the end of the invalid transmission, so try the next one
                 invalid_transmission = false;
-                data_accumulator = 0;
                 data_length = 0;
                 continue;
             }
         }
+
+        // If we're already at max length and about to read another pulse, fail
+        if (data_length > MAX_TRANSMISSION_LENGTH)
+            fatal(ERROR_INCOMING_IR_TRANSMISSION_TOO_LONG);
 
         uint8_t pulse_length;
         bool empty = !queue_pop(&g_incoming_pulse_widths, &pulse_length);
@@ -321,7 +324,7 @@ bool irReceiver_tryGetTransmission(uint16_t* data_out, uint8_t* data_length_out)
         bool is_valid_pulse_length = tryDecodePulseLength(pulse_length, &bit);
         if (is_valid_pulse_length)
         {
-            data_accumulator = (data_accumulator << 1) | bit;
+            bitArray_setBit(data_out, data_length, bit);
             data_length++;
         }
         else

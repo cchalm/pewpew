@@ -1,5 +1,8 @@
 #include "circularBuffer.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
 circular_buffer_t circularBuffer_create(uint8_t* storage, uint8_t length)
 {
     circular_buffer_t circularBuffer = {

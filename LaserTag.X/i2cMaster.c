@@ -20,7 +20,6 @@ bool g_outgoing_message_in_progress = false;
 
 uint8_t g_incoming_message_queue_storage[INCOMING_MESSAGE_QUEUE_LENGTH];
 string_queue_t g_incoming_message_queue;
-uint8_t g_read_request_length = 0;
 
 void i2cMaster_initialize()
 {

@@ -33,6 +33,7 @@
 // Use project enums instead of #define for ON and OFF.
 // clang-format on
 
+#include "../LaserTagUtils.X/bitArray.h"
 #include "error.h"
 #include "i2cSlave.h"
 #include "IRReceiver.h"
@@ -48,38 +49,31 @@
 static void receiveDataOverIR()
 {
     uint8_t received_data_length;
-    uint16_t received_data;
-    if (irReceiver_tryGetTransmission(&received_data, &received_data_length))
+    static uint8_t received_data[NUM_BYTES(MAX_TRANSMISSION_LENGTH) + 1];
+    if (irReceiver_tryGetTransmission(received_data + 1, &received_data_length))
     {
         // Send the received transmission length and the data to the main processor
-        uint8_t data[] = {received_data_length, (uint8_t)received_data, (uint8_t)(received_data >> 8)};
-        i2cSlave_write(data, 3);
+        received_data[0] = received_data_length;
+        i2cSlave_write(received_data, NUM_BYTES(received_data_length) + 1);
     }
 }
 
 static void transmitDataOverIR()
 {
-    uint8_t i2c_message[3];
+    uint8_t i2c_message[NUM_BYTES(MAX_TRANSMISSION_LENGTH) + 1];
     uint8_t i2c_message_length;
-    bool is_whole_message = i2cSlave_read(3, i2c_message, &i2c_message_length);
+    bool is_whole_message = i2cSlave_read(NUM_BYTES(MAX_TRANSMISSION_LENGTH) + 1, i2c_message, &i2c_message_length);
     if (i2c_message_length != 0)
     {
         if (!is_whole_message)
         {
-            fatal(ERROR_TRANSMISSION_TOO_LONG);
+            fatal(ERROR_OUTGOING_IR_TRANSMISSION_TOO_LONG);
             // If we ever choose to ignore this error, we must flush the remainder of the message before proceeding
         }
 
         // Length in bits
         uint8_t transmission_length = i2c_message[0];
-        uint16_t data_to_transmit = 0;
-
-        for (uint8_t i = 0; i < i2c_message_length - 1; i++)
-        {
-            data_to_transmit |= (i2c_message[i + 1] << (i << 3));
-        }
-
-        irTransmitter_transmitAsync(data_to_transmit, transmission_length);
+        irTransmitter_transmitAsync(i2c_message + 1, transmission_length);
     }
 }
 
