@@ -56,12 +56,37 @@ void i2cMaster_initialize()
 
 void i2cMaster_write(uint8_t address, uint8_t* data, uint8_t data_length)
 {
-    // The 7-bit address sits in the most significant bits, with the LSB for the R/W bit
-    address <<= 1;
-    if (!stringQueue_pushPartial(&g_outgoing_message_queue, &address, 1, false))
+    i2cMaster_writePartial(address, data, data_length, true);
+}
+
+void i2cMaster_writePartial(uint8_t address, uint8_t* data, uint8_t data_length, bool is_last_part)
+{
+    // Stores the address of the last partial write
+    static uint8_t current_address = 0;
+    static bool transmission_partially_written = false;
+
+    if (!transmission_partially_written)
+    {
+        current_address = address;
+        // The 7-bit address must sit in the most significant bits, with the LSB for the R/W bit
+        address <<= 1;
+        if (!stringQueue_pushPartial(&g_outgoing_message_queue, &address, 1, false))
+            fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
+
+        transmission_partially_written = true;
+    }
+    else
+    {
+        // Each partial write of a transmission must use the same address
+        if (address != current_address)
+            fatal(ERROR_I2C_PARTIAL_WRITE_ADDRESS_MISMATCH);
+    }
+
+    if (!stringQueue_pushPartial(&g_outgoing_message_queue, data, data_length, is_last_part))
         fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
-    if (!stringQueue_pushPartial(&g_outgoing_message_queue, data, data_length, true))
-        fatal(ERROR_I2C_OUTGOING_QUEUE_FULL);
+
+    if (is_last_part)
+        transmission_partially_written = false;
 }
 
 void i2cMaster_read(uint8_t address, uint8_t read_length)
@@ -155,8 +180,10 @@ static void stateChange_writeNextByteToBuffer(bool isAddress)
             bool is_last = stringQueue_pop(&g_outgoing_message_queue, 1, &g_read_length, &out_length);
             if (!is_last)
                 fatal(0);
+            // Shift off the R/W bit appended to the address
+            uint8_t addr = next_byte >> 1;
             // Write the address for the read to the incoming message queue
-            if (!stringQueue_pushPartial(&g_incoming_message_queue, &next_byte, 1, false))
+            if (!stringQueue_pushPartial(&g_incoming_message_queue, &addr, 1, false))
                 fatal(ERROR_I2C_INCOMING_QUEUE_FULL);
         }
     }
