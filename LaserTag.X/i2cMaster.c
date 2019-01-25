@@ -91,6 +91,9 @@ void i2cMaster_writePartial(uint8_t address, uint8_t* data, uint8_t data_length,
 
 void i2cMaster_read(uint8_t address, uint8_t read_length)
 {
+    if (read_length == 0)
+        fatal(ERROR_I2C_ZERO_READ_LENGTH);
+
     // The 7-bit address sits in the most significant bits, with the LSB for the R/W bit
     address <<= 1;
     // Set the Read bit
