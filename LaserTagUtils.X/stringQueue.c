@@ -124,7 +124,7 @@ bool stringQueue_hasFullStringAt(string_queue_t* queue, uint8_t index)
     uint8_t bitarray_length = (queue->buffer.length + 7) >> 3;
 
     // Inclusive start index into bits of the bitarray
-    uint8_t start_bit_index = _circularBuffer_getPhysicalIndex(&queue->buffer, index+1);
+    uint8_t start_bit_index = _circularBuffer_getPhysicalIndex(&queue->buffer, index + 1);
     // *Inclusive* end index into bits of the bitarray
     uint8_t inclusive_end_bit_index = queue->buffer.back_index;
 

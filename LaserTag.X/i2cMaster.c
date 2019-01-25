@@ -105,6 +105,12 @@ void i2cMaster_read(uint8_t address, uint8_t read_length)
 
 bool i2cMaster_getReadResults(uint8_t address, uint8_t max_length, uint8_t* data_out, uint8_t* length_out)
 {
+    if (!keyedStringQueue_hasFullString(&g_incoming_message_queue, address))
+    {
+        *length_out = 0;
+        return false;
+    }
+
     return keyedStringQueue_pop(&g_incoming_message_queue, address, max_length, data_out, length_out);
 }
 

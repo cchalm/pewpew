@@ -4,11 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-void irTransceiver_transmit(uint8_t* data, uint8_t data_length);
-// Get a received transmission, if available. Takes the maximum number of bytes to return. Returns the data and the
-// actual number of bytes returned as two out parameters. Returns true if the returned data is the end of a distinct
-// transmission, false otherwise. A return value of false with a returned data length of zero indicates that no
-// transmissions have been received.
-bool irTransceiver_receive(uint8_t max_data_length, uint8_t* data_out, uint8_t* data_out_length);
+void irTransceiver_transmit(uint8_t* bitarray, uint8_t bitarray_length);
+// Get a received transmission, if available. Returns the bits and the number of bits as two out parameters. Returns
+// true if a transmission was returned, false otherwise. The data out parameter must point to an array large enough to
+// store the maximum transmission length
+bool irTransceiver_receive(uint8_t* bitarray_out, uint8_t* bitarray_length_out);
 
 #endif /* IRTRANSCEIVER_H */

@@ -37,6 +37,7 @@
 #include "LEDs.h"
 #include "error.h"
 #include "i2cMaster.h"
+#include "irTransceiver.h"
 #include "packetConstants.h"
 #include "packetReceiver.h"
 #include "packetTransmitter.h"
@@ -216,6 +217,7 @@ static void testTransceiver()
     {
         loop_count = 1000;
 
+        /*
         i2cMaster_read(0b1010001, 3);
 
         uint8_t test_transmission[] = {10, 0b10110111, 0b01000000};
@@ -227,6 +229,17 @@ static void testTransceiver()
         uint8_t received_data_length;
 
         bool is_whole_message = i2cMaster_getReadResults(0b1010001, 3, test_received_data, &received_data_length);
+        */
+
+        uint8_t bits[] = {0b10110111, 0b01111011, 0b11100000};
+        irTransceiver_transmit(bits, 20);
+    }
+
+    if ((loop_count & 0b11111) == 0)
+    {
+        uint8_t received_bits[10];
+        uint8_t num_received_bits;
+        bool got = irTransceiver_receive(received_bits, &num_received_bits);
     }
 
     loop_count--;
