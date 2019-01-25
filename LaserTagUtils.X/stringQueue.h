@@ -44,6 +44,8 @@ uint8_t stringQueue_freeCapacity(string_queue_t* queue);
 // Returns true if the queue contains at least one full string. Returns false if the queue is empty or only contains a
 // partial string
 bool stringQueue_hasFullString(string_queue_t* queue);
+// Returns true if the queue contains a full string at or after the given index, false otherwise
+bool stringQueue_hasFullStringAt(string_queue_t* queue, uint8_t index);
 
 // Peek at the length of the string at the front of the queue. Linear complexity, with the length of the string
 uint8_t stringQueue_peekStringLength(string_queue_t* queue);

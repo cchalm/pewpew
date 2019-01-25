@@ -109,8 +109,13 @@ static uint8_t increment(uint8_t index, uint8_t end)
 
 bool stringQueue_hasFullString(string_queue_t* queue)
 {
-    // If there are any set bits in the "end of string" flag array bytes covering the range between `index` and
-    // `end_index`, then there is a full string in the queue
+    return stringQueue_hasFullStringAt(queue, 0);
+}
+
+bool stringQueue_hasFullStringAt(string_queue_t* queue, uint8_t index)
+{
+    // If there are any set bits in the "end of string" flag array bytes covering the range between the given relative
+    // index and the end of the queue, then there is a full string in the queue
 
     if (stringQueue_size(queue) == 0)
         return false;
@@ -118,20 +123,44 @@ bool stringQueue_hasFullString(string_queue_t* queue)
     // Length of the "end of string" flag array in bytes
     uint8_t bitarray_length = (queue->buffer.length + 7) >> 3;
 
+    // Inclusive start index into bits of the bitarray
+    uint8_t start_bit_index = _circularBuffer_getPhysicalIndex(&queue->buffer, index+1);
+    // *Inclusive* end index into bits of the bitarray
+    uint8_t inclusive_end_bit_index = queue->buffer.back_index;
+
     // Inclusive start index into bytes of the bitarray
-    uint8_t start_byte_index = increment(queue->buffer.front_index, queue->buffer.length) >> 3;
-
+    uint8_t start_byte_index = start_bit_index >> 3;
+    // *Inclusive* end index into bytes of the bitarray
+    uint8_t inclusive_end_byte_index = inclusive_end_bit_index >> 3;
     // Exclusive end index into bytes of the bitarray
-    uint8_t end_byte_index = increment(queue->buffer.back_index >> 3, bitarray_length);
+    uint8_t end_byte_index = increment(inclusive_end_byte_index, bitarray_length);
 
-    // TODO mask first and last byte to avoid picking up errant bits
+    uint8_t start_byte_mask = ~(((uint8_t)(~0)) << (8 - (start_bit_index & 0b111)));
+    uint8_t end_byte_mask = ~(((uint8_t)(~0)) >> ((inclusive_end_bit_index & 0b111) + 1));
 
     uint8_t byte_index = start_byte_index;
 
     while (byte_index != end_byte_index)
     {
-        if (*(queue->string_end_flags + byte_index) != 0)
-            return true;
+        uint8_t byte_value = *(queue->string_end_flags + byte_index);
+        if (byte_index == start_byte_index)
+        {
+            if (byte_index == inclusive_end_byte_index)
+                start_byte_mask &= end_byte_mask;
+
+            if ((byte_value & start_byte_mask) != 0)
+                return true;
+        }
+        else if (byte_index == inclusive_end_byte_index)
+        {
+            if ((byte_value & end_byte_mask) != 0)
+                return true;
+        }
+        else
+        {
+            if (byte_value != 0)
+                return true;
+        }
 
         byte_index = increment(byte_index, bitarray_length);
     }

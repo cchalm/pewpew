@@ -3,24 +3,38 @@
 #include "circularBuffer.h"
 #include "stringQueue.h"
 
-bool keyedStringQueue_pop(string_queue_t* queue, uint8_t key, uint8_t max_length, uint8_t* data_out,
-                          uint8_t* length_out)
+static bool tryFindKey(string_queue_t* queue, uint8_t key, uint8_t* key_index_out)
 {
-    // Find the key
+    circular_buffer_t* buffer = &queue->buffer;
     uint8_t key_index = 0;
-    uint8_t queue_size = stringQueue_size(queue);
-    while (circularBuffer_get(&queue->buffer, key_index) != key)
+    uint8_t buffer_size = circularBuffer_size(buffer);
+    while (key_index != buffer_size && circularBuffer_get(buffer, key_index) != key)
     {
         do
         {
             key_index++;
-        } while (!_stringQueue_getIsEndOfString(queue, key_index));
+        } while (key_index != buffer_size && !_stringQueue_getIsEndOfString(queue, key_index));
+    }
 
-        if (key_index == queue_size)
-        {
-            // Key not found
-            return false;
-        }
+    if (key_index == buffer_size)
+    {
+        // Key not found
+        return false;
+    }
+
+    *key_index_out = key_index;
+    return true;
+}
+
+bool keyedStringQueue_pop(string_queue_t* queue, uint8_t key, uint8_t max_length, uint8_t* data_out,
+                          uint8_t* length_out)
+{
+    // Find the key
+    uint8_t key_index;
+    if (!tryFindKey(queue, key, &key_index))
+    {
+        *length_out = 0;
+        return false;
     }
 
     // Pop from the index after the key. We'll pop off the key only if we pop off the end of string, otherwise we'll
@@ -38,4 +52,14 @@ bool keyedStringQueue_pop(string_queue_t* queue, uint8_t key, uint8_t max_length
     }
 
     return popped_end_of_string;
+}
+
+bool keyedStringQueue_hasFullString(string_queue_t* queue, uint8_t key)
+{
+    // Find the key
+    uint8_t key_index;
+    if (!tryFindKey(queue, key, &key_index))
+        return false;
+
+    return stringQueue_hasFullStringAt(queue, key_index);
 }

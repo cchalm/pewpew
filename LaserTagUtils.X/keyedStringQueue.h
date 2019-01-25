@@ -11,4 +11,6 @@
 bool keyedStringQueue_pop(string_queue_t* queue, uint8_t key, uint8_t max_length, uint8_t* data_out,
                           uint8_t* length_out);
 
+bool keyedStringQueue_hasFullString(string_queue_t* queue, uint8_t key);
+
 #endif /* KEYEDSTRINGQUEUE_H */
