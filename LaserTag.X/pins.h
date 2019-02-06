@@ -42,9 +42,9 @@
 #define TRIGGER_NOT_PRESSED LOW
 
 // Reload input
-#define PIN_RELOAD RC3
-#define PORT_INDEX_RELOAD 3
-#define PORT_MASK_RELOAD 0b1000
+#define PIN_RELOAD RC1
+#define PORT_INDEX_RELOAD 1
+#define PORT_MASK_RELOAD 0b10
 #define MAG_IN HIGH
 #define MAG_OUT LOW
 
