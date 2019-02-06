@@ -1,6 +1,7 @@
 #include "LEDs.h"
 
 #include "LEDDriver.h"
+#include "pins.h"
 #include "system.h"
 
 #include <xc.h>
@@ -14,16 +15,16 @@ void initializeLEDs()
 
 void flashMuzzleLight()
 {
-    LATCH_MUZZLE_FLASH = 0;
+    LATCH_MUZZLE_LED = 0;
     NOP();
-    LATCH_MUZZLE_FLASH = 1;
+    LATCH_MUZZLE_LED = 1;
 }
 
 void flashHitLight()
 {
-    LATCH_HIT_LIGHT = 0;
+    LATCH_HIT_LED = 0;
     NOP();
-    LATCH_HIT_LIGHT = 1;
+    LATCH_HIT_LED = 1;
 }
 
 void setBarDisplay1(uint16_t bits)

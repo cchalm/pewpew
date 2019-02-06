@@ -1,6 +1,8 @@
 #include "irTransceiver.h"
 
 #include "../LaserTagUtils.X/bitArray.h"
+#include "crc.h"
+#include "crcConstants.h"
 #include "error.h"
 #include "i2cMaster.h"
 
@@ -91,4 +93,34 @@ bool irTransceiver_receive(uint8_t* bitarray_out, uint8_t* bitarray_length_out)
     }
 
     return data_returned;
+}
+
+void irTransceiver_transmit8WithCRC(uint8_t data)
+{
+    uint8_t transmission[] = {data, crc(data)};
+    irTransceiver_transmit(transmission, 8 + CRC_LENGTH);
+}
+
+bool irTransceiver_receive8WithCRC(uint8_t* data_out)
+{
+    uint8_t transmission[2];
+    uint8_t num_bits;
+    if (!irTransceiver_receive(transmission, &num_bits))
+        return false;
+
+    if (num_bits != 8 + CRC_LENGTH)
+        return false;
+
+    uint8_t data = transmission[0];
+
+    uint8_t actual_crc = transmission[1];
+    uint8_t expected_crc = crc(data);
+
+    bool crc_matches = expected_crc == actual_crc;
+    if (crc_matches)
+    {
+        *data_out = data;
+    }
+
+    return crc_matches;
 }

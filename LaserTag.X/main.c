@@ -38,9 +38,7 @@
 #include "error.h"
 #include "i2cMaster.h"
 #include "irTransceiver.h"
-#include "packetConstants.h"
-#include "packetReceiver.h"
-#include "packetTransmitter.h"
+#include "pins.h"
 #include "realTimeClock.h"
 #include "system.h"
 
@@ -209,42 +207,6 @@ static count_t getShotDelay()
     return g_shot_enable_ms_count;
 }
 
-static void testTransceiver()
-{
-    static uint16_t loop_count = 0;
-
-    if (loop_count == 0)
-    {
-        loop_count = 1000;
-
-        /*
-        i2cMaster_read(0b1010001, 3);
-
-        uint8_t test_transmission[] = {10, 0b10110111, 0b01000000};
-        i2cMaster_write(0b1010001, test_transmission, 3);
-
-        i2cMaster_flushQueue();
-
-        uint8_t test_received_data[3];
-        uint8_t received_data_length;
-
-        bool is_whole_message = i2cMaster_getReadResults(0b1010001, 3, test_received_data, &received_data_length);
-        */
-
-        uint8_t bits[] = {0b10110111, 0b01111011, 0b11100000};
-        irTransceiver_transmit(bits, 20);
-    }
-
-    if ((loop_count & 0b11111) == 0)
-    {
-        uint8_t received_bits[10];
-        uint8_t num_received_bits;
-        bool got = irTransceiver_receive(received_bits, &num_received_bits);
-    }
-
-    loop_count--;
-}
-
 int main(void)
 {
     configureSystem();
@@ -282,8 +244,8 @@ int main(void)
 
     // Set the "was" variables for use on the first loop iteration
     uint16_t input_state = INPUT_PORT;
-    bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-    bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+    bool trigger_was_pressed = ((input_state >> PORT_INDEX_TRIGGER) & 1) == TRIGGER_PRESSED;
+    bool mag_was_out = ((input_state >> PORT_INDEX_RELOAD) & 1) == MAG_OUT;
 
     // Enable interrupts (go, go, go!)
     GIE = 1;
@@ -292,10 +254,8 @@ int main(void)
     {
         i2cMaster_eventHandler();
 
-        testTransceiver();
-
         uint8_t received_data;
-        if (tryGetPacket(&received_data))
+        if (irTransceiver_receive8WithCRC(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA
             setBarDisplay1(received_data);
@@ -334,8 +294,8 @@ int main(void)
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
         input_state = INPUT_PORT;
-        bool trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-        bool mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
+        bool trigger_pressed = ((input_state >> PORT_INDEX_TRIGGER) & 1) == TRIGGER_PRESSED;
+        bool mag_in = ((input_state >> PORT_INDEX_RELOAD) & 1) == MAG_IN;
 
         if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && g_can_shoot)
         {
@@ -393,12 +353,10 @@ void __interrupt() ISR(void)
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 & 1) << (PACKET_LENGTH - 1));
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 & 1) << 7);
 #endif
 
-    bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);
-    /*if (transmissionInProgress)
-        fatal(ERROR_TRANSMISSION_OVERLAP);*/  // TODO figure out what to do with this with the new separate transceiver
+    irTransceiver_transmit8WithCRC(g_shot_data_to_send);
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT

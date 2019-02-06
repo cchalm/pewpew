@@ -18,8 +18,6 @@
       <itemPath>error.h</itemPath>
       <itemPath>crc.h</itemPath>
       <itemPath>crcConstants.h</itemPath>
-      <itemPath>packetReceiver.h</itemPath>
-      <itemPath>packetTransmitter.h</itemPath>
       <itemPath>i2cMaster.h</itemPath>
       <itemPath>pins.h</itemPath>
       <itemPath>pps.h</itemPath>
@@ -47,11 +45,10 @@
       <itemPath>realTimeClock.c</itemPath>
       <itemPath>error.c</itemPath>
       <itemPath>crc.c</itemPath>
-      <itemPath>packetReceiver.c</itemPath>
-      <itemPath>packetTransmitter.c</itemPath>
       <itemPath>i2cMaster.c</itemPath>
       <itemPath>LEDDriver.c</itemPath>
       <itemPath>irTransceiver.c</itemPath>
+      <itemPath>inputs.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -182,6 +179,7 @@
                   value="Press to browse for a specific firmware version"/>
         <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>
