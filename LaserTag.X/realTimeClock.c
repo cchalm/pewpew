@@ -7,16 +7,13 @@
 
 #include "realTimeClock.h"
 
-#include <stdbool.h>
+#include <stdint.h>
 #include <xc.h>
 
 void initializeRTC()
 {
-    // Note that the datasheet says HFINTOSC (16MHz) on page 429. We selected
-    // the HFINTOSC frequency as 32MHz with the OSCFRQ register though, and
-    // observation confirms 32MHz.
-    // Select HFINTOSC (32MHz) as the timer 2 clock source
-    T2CLKCON = 0b0011;
+    // Select Fosc (32MHz) as the timer 2 clock source
+    T2CLKCON = 0b0001;
     // Set prescaler to 1:128
     T2CONbits.CKPS = 0b111;
     // Set period register (the value after which the timer will overflow) to
@@ -33,8 +30,8 @@ void initializeRTC()
     TMR2ON = 1;
 }
 
-static volatile count_t g_s_count = 0;
-static volatile count_t g_ms_count = 0;
+static volatile uint32_t g_s_count = 0;
+static volatile uint32_t g_ms_count = 0;
 
 void rtcTimerInterruptHandler(void)
 {
@@ -43,8 +40,10 @@ void rtcTimerInterruptHandler(void)
     if (!(TMR2IF && TMR2IE))
         return;
 
-    static count_t next_s = 1000;
+    static uint32_t next_s = 1000;
 
+    //uint32_t test_last_value = g_ms_count;
+    // TODO something hinky is going on. g_ms_count is being set to 0 somewhere
     g_ms_count++;
 
     if (g_ms_count == next_s)
@@ -57,13 +56,13 @@ void rtcTimerInterruptHandler(void)
     TMR2IF = 0;
 }
 
-count_t getSecondCount()
+uint32_t getSecondCount()
 {
     // two-byte read race?
     return g_s_count;
 }
 
-count_t getMillisecondCount()
+uint32_t getMillisecondCount()
 {
     // two-byte read race?
     return g_ms_count;

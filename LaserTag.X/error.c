@@ -8,7 +8,12 @@
 
 void fatal(uint8_t error_code)
 {
+    // Stop all interrupt handling
     GIE = 0;
+
+    // Disable all system modules to stop asynchronous behavior and release shared buses
+    shutdownSystem();
+
     while (1)
     {
         for (int i = 0; i < 5; i++)

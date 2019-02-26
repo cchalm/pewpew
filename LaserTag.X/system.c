@@ -35,6 +35,11 @@ void configureSystem(void)
     TRISC |= 0b11110;
 }
 
+void shutdownSystem(void)
+{
+    i2cMaster_shutdown();
+}
+
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)
 {
     volatile uint32_t i = 0;

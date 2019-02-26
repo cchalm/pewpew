@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 void i2cMaster_initialize(void);
+void i2cMaster_shutdown(void);
+
 void i2cMaster_eventHandler(void);
 
 // Queues the given data to transmit to the device with the given address.

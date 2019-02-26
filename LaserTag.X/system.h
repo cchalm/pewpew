@@ -7,6 +7,8 @@
 #define LOW 0
 
 void configureSystem(void);
+// Shutdown all modules immediately
+void shutdownSystem(void);
 void delay(uint32_t d);
 void delayTiny(uint32_t d);
 

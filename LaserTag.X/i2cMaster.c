@@ -54,6 +54,11 @@ void i2cMaster_initialize()
     g_incoming_message_queue = stringQueue_create(g_incoming_message_queue_storage, INCOMING_MESSAGE_QUEUE_LENGTH);
 }
 
+void i2cMaster_shutdown()
+{
+    SSP1CON1bits.SSPEN = 0;
+}
+
 void i2cMaster_write(uint8_t address, uint8_t* data, uint8_t data_length)
 {
     i2cMaster_writePartial(address, data, data_length, true);

@@ -8,9 +8,12 @@
 
 void fatal(uint16_t error_code)
 {
+    // Stop all interrupt handling
     GIE = 0;
+
     // Disable all system modules to stop asynchronous behavior and release shared buses
     shutdownSystem();
+
     // Disable all output drivers
     // TRISA = ~0;
     // TRISB = ~0;

@@ -50,7 +50,7 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 50
+#define FIRE_RATE 2
 // Delay between shots in ms
 #define SHOT_DELAY_MS 1000 / (FIRE_RATE)
 #define FULL_AUTO true
@@ -63,7 +63,7 @@
 #undef COUNT_DROPPED_TRANSMISSIONS
 #undef DISPLAY_DROP_COUNT
 #define DISPLAY_RECEIVED_DATA
-#define RANDOMIZE_SHOT_DELAY
+#undef RANDOMIZE_SHOT_DELAY
 #define SEND_RANDOM_DATA
 
 #ifdef RANDOMIZE_SHOT_DELAY
@@ -73,7 +73,7 @@
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
-count_t g_shot_enable_ms_count;
+uint32_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
 uint8_t g_shot_data_to_send;
@@ -189,22 +189,21 @@ static void testLEDDriver()
     i2cMaster_flushQueue();
 }
 
-static count_t getShotDelay()
+static uint32_t getShotDelay()
 {
 #ifdef RANDOMIZE_SHOT_DELAY
     // Rand is too slow, so sweep through the range instead
     static uint16_t delay = MIN_SHOT_DELAY_MS;
     static uint8_t inc = 1;
-    g_shot_enable_ms_count = getMillisecondCount() + delay;
+    uint16_t delay_to_return = delay;
     delay += inc;
     if (delay > MAX_SHOT_DELAY_MS)
         delay = MIN_SHOT_DELAY_MS;
     inc++;
+    return delay_to_return;
 #else
-    g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
+    return SHOT_DELAY_MS;
 #endif
-
-    return g_shot_enable_ms_count;
 }
 
 int main(void)
@@ -285,8 +284,7 @@ int main(void)
 #endif
         }
 
-        // Assumes that we hit this function at least once per millisecond
-        if (getMillisecondCount() == g_shot_enable_ms_count)
+        if (getMillisecondCount() >= g_shot_enable_ms_count)
         {
             g_can_shoot = true;
         }
