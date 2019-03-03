@@ -42,8 +42,6 @@ void rtcTimerInterruptHandler(void)
 
     static uint32_t next_s = 1000;
 
-    //uint32_t test_last_value = g_ms_count;
-    // TODO something hinky is going on. g_ms_count is being set to 0 somewhere
     g_ms_count++;
 
     if (g_ms_count == next_s)

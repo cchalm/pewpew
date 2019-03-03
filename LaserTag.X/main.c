@@ -252,6 +252,7 @@ int main(void)
     while (true)
     {
         i2cMaster_eventHandler();
+        irTransceiver_eventHandler();
 
         uint8_t received_data;
         if (irTransceiver_receive8WithCRC(&received_data))
