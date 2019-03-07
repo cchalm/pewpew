@@ -352,7 +352,7 @@ void __interrupt() ISR(void)
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR6 & 1) << 7);
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR2 & 1) << 7);
 #endif
 
     irTransceiver_transmit8WithCRC(g_shot_data_to_send);

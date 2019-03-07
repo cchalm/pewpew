@@ -140,11 +140,16 @@ i2cModuleState_t g_i2c_module_state = I2C_STATE_IDLE;
 // Non-zero when reading from slave, zero when writing to slave
 uint8_t g_read_length = 0;
 
+bool i2cMaster_isIdle()
+{
+    return g_i2c_module_state == I2C_STATE_IDLE && isOutgoingQueueEmpty();
+}
+
 void i2cMaster_flushQueue()
 {
     // Continue until the queue is empty AND the module state is idle. If we stop as soon as the message queue is empty,
     // we will not send the stop bit for the final byte
-    while (!(g_i2c_module_state == I2C_STATE_IDLE && isOutgoingQueueEmpty()))
+    while (!i2cMaster_isIdle())
         i2cMaster_eventHandler();
 }
 

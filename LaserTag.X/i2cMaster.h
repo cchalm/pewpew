@@ -23,7 +23,10 @@ void i2cMaster_read(uint8_t address, uint8_t read_length);
 // of zero indicates that there is no data available. Will not return any data until an entire read is available
 bool i2cMaster_getReadResults(uint8_t address, uint8_t max_length, uint8_t* data_out, uint8_t* length_out);
 
+// Returns true if the module is idle and has no queued messages, including reads and writes.
+bool i2cMaster_isIdle(void);
 // Blocks and pumps the event handler until all queued messages have been sent. This includes reads and writes.
 void i2cMaster_flushQueue(void);
+
 
 #endif /* I2CMASTER_H */
