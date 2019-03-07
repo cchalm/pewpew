@@ -135,7 +135,7 @@ bool irTransceiver_receive(uint8_t* bitarray_out, uint8_t bitarray_max_length, u
 
 void irTransceiver_transmit8WithCRC(uint8_t data)
 {
-    uint8_t transmission[] = {data, crc(data)};
+    uint8_t transmission[] = {data, crc(data) << (8 - CRC_LENGTH)};
     irTransceiver_transmit(transmission, 8 + CRC_LENGTH);
 }
 
@@ -151,7 +151,7 @@ bool irTransceiver_receive8WithCRC(uint8_t* data_out)
 
     uint8_t data = transmission[0];
 
-    uint8_t actual_crc = transmission[1];
+    uint8_t actual_crc = transmission[1] >> (8 - CRC_LENGTH);
     uint8_t expected_crc = crc(data);
 
     bool crc_matches = expected_crc == actual_crc;
