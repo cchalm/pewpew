@@ -72,74 +72,30 @@ void i2cSlave_write(uint8_t* data, uint8_t data_length)
     }
 }
 
-typedef enum {
-    I2C_STATE_IDLE,
-    I2C_STATE_AWAITING_ADDRESS,
-    I2C_STATE_AWAITING_DATA,
-    I2C_STATE_AWAITING_ACK
-} i2cModuleState_t;
-
-i2cModuleState_t g_i2c_module_state = I2C_STATE_IDLE;
-
-static void stateChange_awaitData()
-{
-    // TODO check if we can just clear SSP1BF manually
-    // SSP1STATbits.BF = 0;
-    // Read from SSP1BUF to clear SSP1STATbits.BF
-    uint8_t tmp = SSP1BUF;
-    // Release the clock
-    CKP = 1;
-
-    g_i2c_module_state = I2C_STATE_AWAITING_DATA;
-}
-
-static void stateChange_readByte()
-{
-    uint8_t data = SSP1BUF;
-    // Release the clock
-    CKP = 1;
-
-    if (!stringQueue_pushPartial(&g_incoming_message_queue, &data, 1, false))
-        fatal(ERROR_I2C_INCOMING_QUEUE_FULL);
-
-    g_i2c_module_state = I2C_STATE_AWAITING_DATA;
-}
-
-static void stateChange_writeByte()
+static uint8_t getNextByteToWrite()
 {
     uint8_t byte;
     if (!queue_pop(&g_outgoing_message_queue, &byte))
         // If the master asks for data and we have none, return zero
         byte = 0;
 
-    SSP1BUF = byte;
-    // Release the clock
-    CKP = 1;
-
-    g_i2c_module_state = I2C_STATE_AWAITING_ACK;
+    return byte;
 }
 
-static void stateChange_endRead()
+static void setReceivedByte(uint8_t data)
+{
+    if (!stringQueue_pushPartial(&g_incoming_message_queue, &data, 1, false))
+        fatal(ERROR_I2C_INCOMING_QUEUE_FULL);
+}
+
+static void endRead()
 {
     // Mark the last byte added as the end of the string
     stringQueue_pushPartial(&g_incoming_message_queue, 0, 0, true);
-
-    g_i2c_module_state = I2C_STATE_IDLE;
-}
-
-static void stateChange_endWrite()
-{
-    g_i2c_module_state = I2C_STATE_IDLE;
 }
 
 void i2cSlave_eventHandler(void)
 {
-    // SSP1IF doesn't get set when the master ends a transmission, so poll for it
-    if ((g_i2c_module_state == I2C_STATE_AWAITING_DATA) && SSP1STATbits.P)
-    {
-        stateChange_endRead();
-    }
-
     // Detecting and handling the SSP1 interrupt flag in a non-interrupting way,
     // as the handling code is not urgent
     if (!SSP1IF)
@@ -150,38 +106,77 @@ void i2cSlave_eventHandler(void)
     // already been set a second time, we will miss that event
     SSP1IF = 0;
 
-    switch (g_i2c_module_state)
+    // Bit of a hack - we need to know when each distinct transmission from the master ends. The master sends a stop
+    // condition to indicate the end of a write. We could enable a stop condition interrupt, but such an interrupt would
+    // give no opportunity for clock stretching, so there would be no guarantee that we would handle the stop condition
+    // interrupt prior to another interrupt coming in for reception of a matching address. Instead, we remember that we
+    // were receiving data. If we were receiving data and then we receive an address, we know that the last byte
+    // received was the last byte in the transmission.
+    static bool wasReceiving = false;
+
+    // Poll the stop condition so that long gaps between messages don't delay ending the read.
+    if (wasReceiving && SSP1STATbits.P)
     {
-        case I2C_STATE_IDLE:
+        endRead();
+        wasReceiving = false;
+    }
+
+    if (SSP1STATbits.D_nA)
+    {
+        // Received or sent data
+
+        if (SSP1STATbits.R_nW)
         {
-            bool read = SSP1STATbits.R_nW;
-            if (read)
-                stateChange_writeByte();
+            // Sent data
+
+            if (SSP1CON2bits.ACKSTAT)
+            {
+                // Sent final byte of message
+                // TODO use stringQueue for output, and verify that the last byte sent was last byte in string?
+            }
             else
-                stateChange_awaitData();
-
-            break;
+            {
+                SSP1BUF = getNextByteToWrite();
+                // Release the clock
+                CKP = 1;
+            }
         }
-
-        case I2C_STATE_AWAITING_DATA:
+        else
         {
-            stateChange_readByte();
+            // Received data
 
-            break;
+            uint8_t data = SSP1BUF;
+            // Release the clock
+            CKP = 1;
+
+            setReceivedByte(data);
+
+            wasReceiving = true;
         }
+    }
+    else
+    {
+        // Received address
 
-        case I2C_STATE_AWAITING_ACK:
+        if (wasReceiving)
         {
-            bool ack = !SSP1CON2bits.ACKSTAT;
-            if (ack)
-                stateChange_writeByte();
-            else
-                stateChange_endWrite();
-
-            break;
+            endRead();
+            wasReceiving = false;
         }
 
-        default:
-            fatal(ERROR_I2C_UNEXPECTED_STATE);
+        if (SSP1STATbits.R_nW)
+        {
+            // Master reading data from us
+            SSP1BUF = getNextByteToWrite();
+        }
+        else
+        {
+            // Master writing data to us
+            // Address is in SSP1BUF; read it to clear SSP1STATbits.BF
+            SSP1BUF;
+        }
+
+        // Release the clock
+        CKP = 1;
     }
 }
