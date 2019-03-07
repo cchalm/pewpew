@@ -81,9 +81,6 @@ int main(void)
 {
     configureSystem();
 
-    // DEBUGGING
-    irReceiver_shutdown();
-
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
