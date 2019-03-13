@@ -28,5 +28,4 @@ bool i2cMaster_isIdle(void);
 // Blocks and pumps the event handler until all queued messages have been sent. This includes reads and writes.
 void i2cMaster_flushQueue(void);
 
-
 #endif /* I2CMASTER_H */

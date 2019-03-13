@@ -197,8 +197,7 @@ static void stateChange_writeNextByteToBuffer(bool isAddress)
         {
             // Pop the read length from the outgoing message queue
             bool is_last = stringQueue_pop(&g_outgoing_message_queue, 1, &g_read_length, &out_length);
-            if (!is_last)
-                fatal(0);
+            assert(is_last, ERROR_I2C_MALFORMED_READ_REQUEST);
             // Shift off the R/W bit appended to the address
             uint8_t addr = next_byte >> 1;
             // Write the address for the read to the incoming message queue

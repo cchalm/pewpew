@@ -1,6 +1,7 @@
 #ifndef ERROR_H
 #define ERROR_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 enum
@@ -17,9 +18,13 @@ enum
     ERROR_CIRCULAR_BUFFER_INDEX_OUT_OF_RANGE,
     ERROR_I2C_PARTIAL_WRITE_ADDRESS_MISMATCH,
     ERROR_I2C_ZERO_READ_LENGTH,
-    ERROR_RECEIVED_TRANSMISSION_TOO_LONG
+    ERROR_RECEIVED_TRANSMISSION_TOO_LONG,
+    ERROR_I2C_MALFORMED_READ_REQUEST,
+    ERROR_IR_XCVR_UNEXPECTED_READ_LENGTH_RESPONSE,
+    ERROR_IR_XCVR_UNEXPECTED_READ_DATA_RESPONSE
 };
 
 void fatal(uint8_t error_code);
+void assert(bool condition, uint8_t error_code);
 
 #endif /* ERROR_H */

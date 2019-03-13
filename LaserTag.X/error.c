@@ -31,3 +31,9 @@ void fatal(uint8_t error_code)
         delay(1000);
     }
 }
+
+void assert(bool condition, uint8_t error_code)
+{
+    if (!condition)
+        fatal(error_code);
+}

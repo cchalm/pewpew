@@ -48,8 +48,7 @@ void irTransceiver_eventHandler()
 
             if (received_data_length != 0)
             {
-                if (received_data_length != 1 || !is_whole_message)
-                    fatal(0);
+                assert(received_data_length == 1 && is_whole_message, ERROR_IR_XCVR_UNEXPECTED_READ_LENGTH_RESPONSE);
 
                 if (num_bits_to_read == 0)
                 {
@@ -84,8 +83,8 @@ void irTransceiver_eventHandler()
 
             if (received_data_length != 0)
             {
-                if (received_data_length != NUM_BYTES(num_bits_to_read) || !is_whole_message)
-                    fatal(0);
+                assert(received_data_length == NUM_BYTES(num_bits_to_read) && is_whole_message,
+                       ERROR_IR_XCVR_UNEXPECTED_READ_DATA_RESPONSE);
 
                 g_transmission_length = num_bits_to_read;
 
