@@ -1,5 +1,5 @@
 #ifndef PACKETRECEIVER_H
-#define	PACKETRECEIVER_H
+#define PACKETRECEIVER_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,5 +10,4 @@
 // undefined when this function returns false.
 bool tryGetPacket(uint8_t* packet_out);
 
-#endif	/* PACKETRECEIVER_H */
-
+#endif /* PACKETRECEIVER_H */

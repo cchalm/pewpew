@@ -1,0 +1,102 @@
+#ifndef PPS_H
+#define PPS_H
+
+#include <xc.h>
+
+// Defines PPS constants, which are mysteriously not defined by the xc8 header
+// for the chip. These values are specific to pic16f1615.
+
+// Not all pins are available for each port. Unavailable pins are commented-out
+
+// clang-format off
+#define PPS_IN_VAL_RA0 0b00000
+#define PPS_IN_VAL_RA1 0b00001
+#define PPS_IN_VAL_RA2 0b00010
+#define PPS_IN_VAL_RA3 0b00011
+#define PPS_IN_VAL_RA4 0b00100
+#define PPS_IN_VAL_RA5 0b00101
+//#define PPS_IN_VAL_RA6 0b00110
+//#define PPS_IN_VAL_RA7 0b00111
+
+#define PPS_IN_VAL_RC0 0b10000
+#define PPS_IN_VAL_RC1 0b10001
+#define PPS_IN_VAL_RC2 0b10010
+#define PPS_IN_VAL_RC3 0b10011
+#define PPS_IN_VAL_RC4 0b10100
+#define PPS_IN_VAL_RC5 0b10101
+//#define PPS_IN_VAL_RC6 0b10110
+//#define PPS_IN_VAL_RC7 0b10111
+
+#define PPS_OUT_REG_RA0 RA0PPS
+#define PPS_OUT_REG_RA1 RA1PPS
+#define PPS_OUT_REG_RA2 RA2PPS
+#define PPS_OUT_REG_RA3 RA3PPS
+#define PPS_OUT_REG_RA4 RA4PPS
+#define PPS_OUT_REG_RA5 RA5PPS
+//#define PPS_OUT_VAL_RA6 RA6PPS
+//#define PPS_OUT_VAL_RA7 RA7PPS
+
+#define PPS_OUT_REG_RC0 RC0PPS
+#define PPS_OUT_REG_RC1 RC1PPS
+#define PPS_OUT_REG_RC2 RC2PPS
+#define PPS_OUT_REG_RC3 RC3PPS
+#define PPS_OUT_REG_RC4 RC4PPS
+#define PPS_OUT_REG_RC5 RC5PPS
+//#define PPS_OUT_REG_RC6 RC6PPS
+//#define PPS_OUT_REG_RC7 RC7PPS
+
+#define PPS_IN_REG_INT      INTPPS
+#define PPS_IN_REG_T0CKI    T0CKIPPS
+#define PPS_IN_REG_T1CKI    T1CKIPPS
+#define PPS_IN_REG_T1G      T1GPPS
+#define PPS_IN_REG_T2CKI    T2PPS // NOTE: differs from documentation
+#define PPS_IN_REG_T3CKI    T3CKIPPS
+#define PPS_IN_REG_T3G      T3GPPS
+#define PPS_IN_REG_T4CKI    T4PPS // NOTE: differs from documentation
+#define PPS_IN_REG_T5CKI    T5CKIPPS
+#define PPS_IN_REG_T5G      T5GPPS
+#define PPS_IN_REG_T6CKI    T6PPS // NOTE: differs from documentation
+#define PPS_IN_REG_CCP1     CCP1PPS
+#define PPS_IN_REG_CCP2     CCP2PPS
+#define PPS_IN_REG_CWG1IN   CWG1INPPS
+#define PPS_IN_REG_SSPCLK   SSPCLKPPS
+#define PPS_IN_REG_SSPDAT   SSPDATPPS
+#define PPS_IN_REG_SSPSS    SSPSSPPS
+#define PPS_IN_REG_RX       RXPPS
+#define PPS_IN_REG_CK       CKPPS
+#define PPS_IN_REG_CLCIN0   CLCIN0PPS
+#define PPS_IN_REG_CLCIN1   CLCIN1PPS
+#define PPS_IN_REG_CLCIN2   CLCIN2PPS
+#define PPS_IN_REG_CLCIN3   CLCIN3PPS
+#define PPS_IN_REG_SMTWIN1  SMTWIN1PPS
+#define PPS_IN_REG_SMTSIG1  SMTSIG1PPS
+#define PPS_IN_REG_SMTWIN2  SMTWIN2PPS
+#define PPS_IN_REG_SMTSIG2  SMTSIG2PPS
+#define PPS_IN_REG_AT1IN    AT1INPPS
+#define PPS_IN_REG_AT1CC1   AT1CC1PPS
+#define PPS_IN_REG_AT1CC2   AT1CC2PPS
+#define PPS_IN_REG_AT1CC3   AT1CC3PPS
+
+#define PPS_OUT_VAL_LATxy        0b00000
+#define PPS_OUT_VAL_sync_C1OUT   0b00001
+#define PPS_OUT_VAL_sync_C2OUT   0b00010
+#define PPS_OUT_VAL_ZCD1_out     0b00011
+#define PPS_OUT_VAL_LC1_out      0b00100
+#define PPS_OUT_VAL_LC2_out      0b00101
+#define PPS_OUT_VAL_LC3_out      0b00110
+#define PPS_OUT_VAL_LC4_out      0b00111
+#define PPS_OUT_VAL_CWG1OUTA     0b01000
+#define PPS_OUT_VAL_CWG1OUTB     0b01001
+#define PPS_OUT_VAL_CWG1OUTC     0b01010
+#define PPS_OUT_VAL_CWG1OUTD     0b01011
+#define PPS_OUT_VAL_CCP1_out     0b01100
+#define PPS_OUT_VAL_CCP2_out     0b01101
+#define PPS_OUT_VAL_PWM3_out     0b01110
+#define PPS_OUT_VAL_PWM4_out     0b01111
+#define PPS_OUT_VAL_SCK_SCL      0b10000
+#define PPS_OUT_VAL_SDO_SDA      0b10001
+#define PPS_OUT_VAL_TX_CK        0b10010
+#define PPS_OUT_VAL_DT           0b10011
+// clang-format on
+
+#endif /* PPS_H */

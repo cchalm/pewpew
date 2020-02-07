@@ -9,20 +9,19 @@
                      projectFiles="true">
         <itemPath>../LaserTagUtils.X/bitArray.h</itemPath>
         <itemPath>../LaserTagUtils.X/stringQueue.h</itemPath>
+        <itemPath>../LaserTagUtils.X/queue.h</itemPath>
         <itemPath>../LaserTagUtils.X/circularBuffer.h</itemPath>
-        <itemPath>../LaserTagUtils.X/keyedStringQueue.h</itemPath>
       </logicalFolder>
       <itemPath>system.h</itemPath>
-      <itemPath>LEDs.h</itemPath>
-      <itemPath>realTimeClock.h</itemPath>
+      <itemPath>transmissionConstants.h</itemPath>
+      <itemPath>IRTransmitter.h</itemPath>
+      <itemPath>IRReceiver.h</itemPath>
+      <itemPath>IRReceiverStats.h</itemPath>
       <itemPath>error.h</itemPath>
-      <itemPath>crc.h</itemPath>
-      <itemPath>crcConstants.h</itemPath>
-      <itemPath>i2cMaster.h</itemPath>
+      <itemPath>clc.h</itemPath>
       <itemPath>pins.h</itemPath>
       <itemPath>pps.h</itemPath>
-      <itemPath>LEDDriver.h</itemPath>
-      <itemPath>irTransceiver.h</itemPath>
+      <itemPath>i2cSlave.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -36,19 +35,15 @@
                      projectFiles="true">
         <itemPath>../LaserTagUtils.X/bitArray.c</itemPath>
         <itemPath>../LaserTagUtils.X/stringQueue.c</itemPath>
+        <itemPath>../LaserTagUtils.X/queue.c</itemPath>
         <itemPath>../LaserTagUtils.X/circularBuffer.c</itemPath>
-        <itemPath>../LaserTagUtils.X/keyedStringQueue.c</itemPath>
       </logicalFolder>
       <itemPath>main.c</itemPath>
       <itemPath>system.c</itemPath>
-      <itemPath>LEDs.c</itemPath>
-      <itemPath>realTimeClock.c</itemPath>
+      <itemPath>IRTransmitter.c</itemPath>
+      <itemPath>IRReceiver.c</itemPath>
       <itemPath>error.c</itemPath>
-      <itemPath>crc.c</itemPath>
-      <itemPath>i2cMaster.c</itemPath>
-      <itemPath>LEDDriver.c</itemPath>
-      <itemPath>irTransceiver.c</itemPath>
-      <itemPath>inputs.c</itemPath>
+      <itemPath>i2cSlave.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -58,6 +53,7 @@
   </logicalFolder>
   <sourceRootList>
     <Elem>.</Elem>
+    <Elem>../LaserTag.X</Elem>
     <Elem>../LaserTagUtils.X</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
@@ -202,7 +198,7 @@
         <property key="programoptions.preservedataflash.ranges"
                   value="${programoptions.preservedataflash.ranges}"/>
         <property key="programoptions.preserveeeprom" value="false"/>
-        <property key="programoptions.preserveeeprom.ranges" value=""/>
+        <property key="programoptions.preserveeeprom.ranges" value="0-ff"/>
         <property key="programoptions.preserveprogram.ranges" value=""/>
         <property key="programoptions.preserveprogramrange" value="false"/>
         <property key="programoptions.preserveuserid" value="false"/>

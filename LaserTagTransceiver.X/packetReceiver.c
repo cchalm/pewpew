@@ -1,7 +1,7 @@
 #include "packetReceiver.h"
 
-#include "crc.h"
 #include "IRReceiver.h"
+#include "crc.h"
 
 #include "crcConstants.h"
 #include "packetConstants.h"

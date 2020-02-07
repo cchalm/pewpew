@@ -1,9 +1,9 @@
 #include "system.h"
 
-#include "LEDs.h"
-#include "crc.h"
-#include "i2cMaster.h"
-#include "realTimeClock.h"
+#include "IRReceiver.h"
+#include "IRTransmitter.h"
+#include "i2cSlave.h"
+#include "pins.h"
 
 #include <xc.h>
 
@@ -21,23 +21,22 @@ void configureSystem(void)
     ANSELA = 0;
     ANSELC = 0;
 
-    initializeLEDs();
-    initializeRTC();
-    initializeCRC();
-    i2cMaster_initialize();
+    irReceiver_initialize();
+    irTransmitter_initialize();
+    i2cSlave_initialize();
 
-    LATA = 0b00110000;
-    LATC = 0b00000000;
+    // Wait for the oscillator to be ready before continuing
+    while (!OSTS)
+        ;
 
-    // Set A4 - A5 to output
-    TRISA &= ~0b110000;
-    // Set C1 - C2 to input for user inputs, and C3 - C4 to input for MSSP
-    TRISC |= 0b11110;
+    TRIS_ERROR_LED = 0;
 }
 
 void shutdownSystem(void)
 {
-    i2cMaster_shutdown();
+    irReceiver_shutdown();
+    irTransmitter_shutdown();
+    i2cSlave_shutdown();
 }
 
 void _delay_gen(uint32_t d, volatile uint16_t multiplier)

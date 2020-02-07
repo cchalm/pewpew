@@ -1,52 +1,46 @@
-// PIC16F18877 Configuration Bit Settings
+// clang-format off
+// PIC16F1619 Configuration Bit Settings
 
 // 'C' source line config statements
 
 // CONFIG1
-#pragma config FEXTOSC = OFF    // External Oscillator mode selection bits (Oscillator not enabled)
-#pragma config RSTOSC = HFINT32 // Power-up default value for COSC bits (HFINTOSC with OSCFRQ= 32 MHz and CDIV = 1:1)
-#pragma config CLKOUTEN = OFF   // Clock Out Enable bit (CLKOUT function is disabled; i/o or oscillator function on OSC2)
-#pragma config CSWEN = OFF      // Clock Switch Enable bit (The NOSC and NDIV bits cannot be changed by user software)
-#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable bit (FSCM timer disabled)
+#pragma config FOSC = INTOSC    // Oscillator Selection Bits (INTOSC oscillator: I/O function on CLKIN pin)
+#pragma config PWRTE = OFF      // Power-up Timer Enable (PWRT disabled)
+#pragma config MCLRE = ON       // MCLR Pin Function Select (MCLR/VPP pin function is MCLR)
+#pragma config CP = OFF         // Flash Program Memory Code Protection (Program memory code protection is disabled)
+#pragma config BOREN = OFF      // Brown-out Reset Enable (Brown-out Reset disabled)
+#pragma config CLKOUTEN = OFF   // Clock Out Enable (CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin)
+#pragma config IESO = ON        // Internal/External Switch Over (Internal External Switch Over mode is enabled)
+#pragma config FCMEN = ON       // Fail-Safe Clock Monitor Enable (Fail-Safe Clock Monitor is enabled)
 
 // CONFIG2
-#pragma config MCLRE = ON       // Master Clear Enable bit (MCLR pin is Master Clear function)
-#pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
-#pragma config LPBOREN = OFF    // Low-Power BOR enable bit (ULPBOR disabled)
-#pragma config BOREN = ON       // Brown-out reset enable bits (Brown-out Reset Enabled, SBOREN bit is ignored)
-#pragma config BORV = LO        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (VBOR) set to 1.9V on LF, and 2.45V on F Devices)
-#pragma config ZCD = OFF        // Zero-cross detect disable (Zero-cross detect circuit is disabled at POR.)
-#pragma config PPS1WAY = ON     // Peripheral Pin Select one-way control (The PPSLOCK bit can be cleared and set only once in software)
-#pragma config STVREN = ON      // Stack Overflow/Underflow Reset Enable bit (Stack Overflow or Underflow will cause a reset)
+#pragma config WRT = OFF        // Flash Memory Self-Write Protection (Write protection off)
+#pragma config PPS1WAY = ON     // Peripheral Pin Select one-way control (The PPSLOCK bit cannot be cleared once it is set by software)
+#pragma config ZCD = OFF        // Zero Cross Detect Disable Bit (ZCD disable.  ZCD can be enabled by setting the ZCDSEN bit of ZCDCON)
+#pragma config PLLEN = ON       // PLL Enable Bit (4x PLL is always enabled)
+#pragma config STVREN = ON      // Stack Overflow/Underflow Reset Enable (Stack Overflow or Underflow will cause a Reset)
+#pragma config BORV = LO        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (Vbor), low trip point selected.)
+#pragma config LPBOR = OFF      // Low-Power Brown Out Reset (Low-Power BOR is disabled)
+#pragma config LVP = ON         // Low-Voltage Programming Enable (Low-voltage programming enabled)
 
 // CONFIG3
-#pragma config WDTCPS = WDTCPS_31// WDT Period Select bits (Divider ratio 1:65536; software control of WDTPS)
-#pragma config WDTE = OFF       // WDT operating mode (WDT Disabled, SWDTEN is ignored)
-#pragma config WDTCWS = WDTCWS_7// WDT Window Select bits (window always open (100%); software control; keyed access not required)
-#pragma config WDTCCS = SC      // WDT input clock selector (Software Control)
-
-// CONFIG4
-#pragma config WRT = OFF        // UserNVM self-write protection bits (Write protection off)
-#pragma config SCANE = not_available// Scanner Enable bit (Scanner module is not available for use)
-#pragma config LVP = ON         // Low Voltage Programming Enable bit (Low Voltage programming enabled. MCLR/Vpp pin function is MCLR.)
-
-// CONFIG5
-#pragma config CP = OFF         // UserNVM Program memory code protection bit (Program Memory code protection disabled)
-#pragma config CPD = OFF        // DataNVM code protection bit (Data EEPROM code protection disabled)
+#pragma config WDTCPS = WDTCPS1F  // WDT Period Select (Software Control (WDTPS))
+#pragma config WDTE = OFF         // Watchdog Timer Enable (WDT disabled)
+#pragma config WDTCWS = WDTCWSSW  // WDT Window Select (Software WDT window size control (WDTWS bits))
+#pragma config WDTCCS = SWC       // WDT Input Clock Selector (Software control, controlled by WDTCS bits)
 
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
+// clang-format on
 
+#include "LEDDriver.h"
+#include "LEDs.h"
 #include "error.h"
-#include "IRReceiver.h"
-#include "IRTransmitter.h"
-#include "packetConstants.h"
-#include "packetReceiver.h"
-#include "packetTransmitter.h"
-#include "LEDDisplay.h"
+#include "i2cMaster.h"
+#include "irTransceiver.h"
+#include "pins.h"
 #include "realTimeClock.h"
 #include "system.h"
-#include "transmissionConstants.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -56,9 +50,9 @@
 #define MAX_AMMO 10
 
 // Shots per second
-#define FIRE_RATE 50
+#define FIRE_RATE 2
 // Delay between shots in ms
-#define SHOT_DELAY_MS 1000/(FIRE_RATE)
+#define SHOT_DELAY_MS 1000 / (FIRE_RATE)
 #define FULL_AUTO true
 
 // Minimum delay, in ms, from trigger falling edge to rising edge for a shot to
@@ -69,7 +63,7 @@
 #undef COUNT_DROPPED_TRANSMISSIONS
 #undef DISPLAY_DROP_COUNT
 #define DISPLAY_RECEIVED_DATA
-#define RANDOMIZE_SHOT_DELAY
+#undef RANDOMIZE_SHOT_DELAY
 #define SEND_RANDOM_DATA
 
 #ifdef RANDOMIZE_SHOT_DELAY
@@ -79,7 +73,7 @@
 
 // The time, in the form of a millisecond count corresponding to ms_counter,
 // at which we can shoot again
-count_t g_shot_enable_ms_count;
+uint32_t g_shot_enable_ms_count;
 volatile bool g_can_shoot;
 
 uint8_t g_shot_data_to_send;
@@ -99,22 +93,145 @@ uint32_t g_num_shots_sent = 0;
 uint32_t g_num_shots_received = 0;
 #endif
 
+static void testLEDDriver()
+{
+    // Reset all registers. No surprises
+    LEDDriver_reset();
+
+    {
+        uint8_t data[36] = {
+            255,  // Bar: Red
+            255,  // Bar: Red
+            255,  // Bar: Red
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            255,  // Bar: Green
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            20,   // Bar: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            255,  // RGB: Red
+            213,  // RGB: Green
+            213,  // RGB: Blue
+            0     // NONE
+        };
+
+        LEDDriver_setPWM(0, data, 36);
+    }
+    {
+        uint8_t data[36] = {
+            0b001,  // Bar: Red
+            0b001,  // Bar: Red
+            0b001,  // Bar: Red
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b011,  // Bar: Green
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b111,  // Bar: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b111,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0b111,  // RGB: Red
+            0b110,  // RGB: Green
+            0b111,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0b110,  // RGB: Red
+            0b110,  // RGB: Green
+            0b110,  // RGB: Blue
+            0       // NONE
+        };
+
+        LEDDriver_setControl(0, data, 36);
+    }
+
+    LEDDriver_flushChanges();
+    LEDDriver_setShutdown(false);
+
+    i2cMaster_flushQueue();
+}
+
+static uint32_t getShotDelay()
+{
+#ifdef RANDOMIZE_SHOT_DELAY
+    // Rand is too slow, so sweep through the range instead
+    static uint16_t delay = MIN_SHOT_DELAY_MS;
+    static uint8_t inc = 1;
+    uint16_t delay_to_return = delay;
+    delay += inc;
+    if (delay > MAX_SHOT_DELAY_MS)
+        delay = MIN_SHOT_DELAY_MS;
+    inc++;
+    return delay_to_return;
+#else
+    return SHOT_DELAY_MS;
+#endif
+}
+
 int main(void)
 {
     configureSystem();
 
-    LATA = 0b111111;
-    LATD = 0b1111;
-    LATB = 0b111111;
+    testLEDDriver();
 
-    setLEDDisplay(0b1010101010);
+    for (unsigned char i = 0; i < 10; i++)
+    {
+        setBarDisplay1(1 << i);
+        setBarDisplay2(1 << i);
+        i2cMaster_flushQueue();
+        delay(100);
+    }
+
+    setBarDisplay1(0);
+    setBarDisplay2(0);
+    i2cMaster_flushQueue();
+
+    flashMuzzleLight();
     delay(400);
-    setLEDDisplay(0b0000000000);
+    flashHitLight();
     delay(400);
-    setLEDDisplay(0b1010101010);
-    delay(400);
-    setLEDDisplay(0b0000000000);
-    delay(400);
+
+    setBarDisplay1(0b1111111111);
+    setBarDisplay2(0b1111111111);
+    i2cMaster_flushQueue();
 
     g_can_shoot = true;
     g_shot_enable_ms_count = 0;
@@ -123,26 +240,25 @@ int main(void)
 
     int16_t health = MAX_HEALTH;
     int16_t ammo = MAX_AMMO;
-    setHealthDisplay(ammo);
 
     // Set the "was" variables for use on the first loop iteration
     uint16_t input_state = INPUT_PORT;
-    bool trigger_was_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-    bool mag_was_out = ((input_state >> RELOAD_OFFSET) & 1) == MAG_OUT;
+    bool trigger_was_pressed = ((input_state >> PORT_INDEX_TRIGGER) & 1) == TRIGGER_PRESSED;
+    bool mag_was_out = ((input_state >> PORT_INDEX_RELOAD) & 1) == MAG_OUT;
 
     // Enable interrupts (go, go, go!)
     GIE = 1;
 
-    while(true)
+    while (true)
     {
-        transmitterEventHandler();
-        receiverEventHandler();
+        i2cMaster_eventHandler();
+        irTransceiver_eventHandler();
 
         uint8_t received_data;
-        if (tryGetPacket(&received_data))
+        if (irTransceiver_receive8WithCRC(&received_data))
         {
 #ifdef DISPLAY_RECEIVED_DATA
-            setLEDDisplay(received_data);
+            setBarDisplay1(received_data);
 #endif
 
             // Register a hit if we received a shot not from ourselves
@@ -169,8 +285,7 @@ int main(void)
 #endif
         }
 
-        // Assumes that we hit this function at least once per millisecond
-        if (getMillisecondCount() == g_shot_enable_ms_count)
+        if (getMillisecondCount() >= g_shot_enable_ms_count)
         {
             g_can_shoot = true;
         }
@@ -178,8 +293,8 @@ int main(void)
         // Snapshot input state. This way, we don't have to worry about the
         // inputs changing while we're performing logic.
         input_state = INPUT_PORT;
-        bool trigger_pressed = ((input_state >> TRIGGER_OFFSET) & 1) == TRIGGER_PRESSED;
-        bool mag_in = ((input_state >> RELOAD_OFFSET) & 1) == MAG_IN;
+        bool trigger_pressed = ((input_state >> PORT_INDEX_TRIGGER) & 1) == TRIGGER_PRESSED;
+        bool mag_in = ((input_state >> PORT_INDEX_RELOAD) & 1) == MAG_IN;
 
         if (trigger_pressed && (FULL_AUTO || !trigger_was_pressed) && g_can_shoot)
         {
@@ -192,25 +307,11 @@ int main(void)
                 shoot();
             }
 
-            // Putting the following lines outside the ammo conditional means
-            // that you can only get a "not enough ammo" signal, like a sound,
-            // at the rate of fire of the tagger, not as fast as you can
-            // press the trigger
+            // Putting the following lines outside the ammo conditional means that you can only get a "not enough ammo"
+            // signal, like a sound, at the rate of fire of the tagger, not as fast as you can press the trigger
 
-            // Indicate that a shot has just occurred and store the time at
-            // which we can shoot again
-#ifdef RANDOMIZE_SHOT_DELAY
-            // Rand is too slow, so sweep through the range instead
-            static uint16_t delay = MIN_SHOT_DELAY_MS;
-            static uint8_t inc = 1;
-            g_shot_enable_ms_count = getMillisecondCount() + delay;
-            delay += inc;
-            if (delay > MAX_SHOT_DELAY_MS)
-                delay = MIN_SHOT_DELAY_MS;
-            inc++;
-#else
-            g_shot_enable_ms_count = getMillisecondCount() + SHOT_DELAY_MS;
-#endif
+            // Indicate that a shot has just occurred and store the time at which we can shoot again
+            g_shot_enable_ms_count = getMillisecondCount() + getShotDelay();
 
             g_can_shoot = false;
         }
@@ -227,14 +328,14 @@ int main(void)
             }
         }
 
-        //if (!mag_in)
+        // if (!mag_in)
         //    setHealthDisplay(0);
 
         if (mag_in && mag_was_out)
         {
             // Mag has been put back in, reload
             ammo = MAX_AMMO;
-            //setHealthDisplay(ammo);
+            // setHealthDisplay(ammo);
         }
 
         // Update "was" variables
@@ -244,53 +345,27 @@ int main(void)
 }
 
 // Main Interrupt Service Routine (ISR)
-void __interrupt () ISR(void)
+void __interrupt() ISR(void)
 {
     rtcTimerInterruptHandler();
-    transmitterInterruptHandler();
-    receiverInterruptHandler();
 }
-
-void setHealthDisplay(uint8_t value)
-{
-    // Shift in zeros from the right and invert
-    setLEDDisplay( ~(0b1111111111 << value) );
-}
-
 void shoot(void)
 {
 #ifdef SEND_RANDOM_DATA
-    g_shot_data_to_send = (g_shot_data_to_send >> 1) |
-            ((TMR6%2) << (PACKET_LENGTH - 1));
+    g_shot_data_to_send = (g_shot_data_to_send >> 1) | ((TMR2 & 1) << 7);
 #endif
 
-    bool transmissionInProgress = !transmitPacketAsync(g_shot_data_to_send);
-    if (transmissionInProgress)
-        fatal(ERROR_TRANSMISSION_OVERLAP);
+    irTransceiver_transmit8WithCRC(g_shot_data_to_send);
 
 #ifdef COUNT_DROPPED_TRANSMISSIONS
 #ifdef DISPLAY_DROP_COUNT
     uint16_t num_shots_missed = g_num_shots_sent - g_num_shots_received;
-    setLEDDisplay(num_shots_missed);
+    setBarDisplay1(num_shots_missed);
 #endif
     g_num_shots_sent++;
 #endif
 
     flashMuzzleLight();
-    //ammo--;
-    //setLEDDisplay(shot_data_to_send);
-}
-
-void flashMuzzleLight(void)
-{
-    PIN_MUZZLE_FLASH = 0;
-    NOP();
-    PIN_MUZZLE_FLASH = 1;
-}
-
-void flashHitLight(void)
-{
-    PIN_HIT_LIGHT = 0;
-    NOP();
-    PIN_HIT_LIGHT = 1;
+    // ammo--;
+    // setBarDisplay1(shot_data_to_send);
 }

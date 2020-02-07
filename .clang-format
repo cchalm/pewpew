@@ -1,0 +1,13 @@
+---
+BasedOnStyle: Google
+ColumnLimit: 120
+IndentWidth: 4
+---
+Language: Cpp
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBinaryOperators: true
+BreakBeforeBraces: Allman
+PointerAlignment: Left
